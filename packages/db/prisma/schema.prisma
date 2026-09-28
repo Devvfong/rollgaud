@@ -42,6 +42,7 @@ model User {
   disabledAt           DateTime?    @map("disabled_at") @db.Timestamptz(6)
   createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   requestedDeployments Deployment[] @relation("RequestedBy")
+  adminSessions        AdminSession[]
 
   @@map("users")
 }
@@ -144,4 +145,20 @@ model ApiCredential {
 
   @@index([projectId, revokedAt])
   @@map("api_credentials")
+}
+
+model AdminSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String?   @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  csrfHash  String    @map("csrf_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("admin_sessions")
 }

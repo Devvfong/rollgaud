@@ -12,4 +12,6 @@ Record implementation choices that change or clarify the approved specification.
 
 | 2026-09-28 | Task 3 pins Prisma and `@prisma/client` 6.19.0, plus PostgreSQL `17.7-alpine3.22@sha256:6b591f995765a189e69276dd55e0b362342d65d10d0359bb1fab67bc3391f20f` | Prisma 6.19.0 supports Node `>=18.18` and avoids adopting the available major-release candidate; the PostgreSQL digest fixes the local integration image | Prisma lifecycle scripts are explicitly approved in `pnpm-workspace.yaml`; dependency or image upgrades require review and a fresh migration/integration run | Accepted |
 
+| 2026-09-28 | Task 4 adds persisted `AdminSession` records and uses opaque random session/CSRF values stored only as SHA-256 hashes | Revocation and anonymous-to-authenticated CSRF binding cannot be safely implemented with a purely stateless cookie or process memory | Adds the `admin_sessions` migration; the application fails readiness when PostgreSQL cannot answer a query | Accepted |
+
 **Next entry:** Record actual dependency/image revisions and any changes needed during Task 1.

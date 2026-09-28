@@ -41,3 +41,13 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Workspace checks: `corepack pnpm -r typecheck && corepack pnpm -r test` exited 0; the DB unit test passed and the existing contracts/student API tests remained green.
 - Live GitHub/server gate: not applicable; no remote, registry publish, deployment, DNS, or server configuration was attempted.
 - Next task: Task 4.
+
+## Task 4 execution evidence
+
+- Red check: `corepack pnpm --filter @devdeploy/api test:e2e -- auth.e2e-spec` exited 1 before the NestJS app factory, auth routes, and test dependencies existed.
+- Green e2e check: the same command exited 0 with 3/3 tests covering CSRF issue/binding, secure session cookie attributes, valid/disabled/missing/invalid/rate-limited access, and CSRF-protected logout/session revocation.
+- Persistence: added `admin_sessions` with hashed token and CSRF columns. `PrismaAuthStore` persists sessions; the e2e factory uses a deliberately isolated in-memory store. `scripts/seed-admin.ts` rejects missing/weak runtime `ADMIN_EMAIL`/`ADMIN_PASSWORD` values and never contains a seed password.
+- Database check: fresh local Compose migration creation/deployment and `corepack pnpm --filter @devdeploy/db test:integration` exited 0 with both migrations applied. The local stack/volume were removed afterward.
+- Typechecks: `corepack pnpm --filter @devdeploy/api typecheck && corepack pnpm --filter @devdeploy/db typecheck` exited 0.
+- Live GitHub/server gate: pending; no remote, deployment, DNS, or server configuration was attempted.
+- Next task: Task 5.

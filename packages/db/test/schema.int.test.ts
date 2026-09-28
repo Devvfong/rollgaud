@@ -123,11 +123,13 @@ test('PostgreSQL enforces project, release, and event uniqueness without plainte
     SELECT table_name, column_name
     FROM information_schema.columns
     WHERE table_schema = 'public'
-      AND table_name IN ('users', 'api_credentials')
-      AND (column_name LIKE '%password%' OR column_name LIKE '%secret%')
+      AND table_name IN ('users', 'api_credentials', 'admin_sessions')
+      AND (column_name LIKE '%password%' OR column_name LIKE '%secret%' OR column_name LIKE '%token%' OR column_name LIKE '%csrf%')
     ORDER BY table_name, column_name
   `;
   assert.deepEqual(sensitiveColumns, [
+    { table_name: 'admin_sessions', column_name: 'csrf_hash' },
+    { table_name: 'admin_sessions', column_name: 'token_hash' },
     { table_name: 'api_credentials', column_name: 'secret_hash' },
     { table_name: 'users', column_name: 'password_hash' },
   ]);

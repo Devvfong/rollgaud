@@ -5,8 +5,22 @@
   "type": "module",
   "scripts": {
     "lint": "tsc --noEmit --project tsconfig.json",
-    "test": "node --test",
+    "test": "corepack pnpm --filter @devdeploy/api test:e2e",
+    "test:e2e": "corepack pnpm --filter @devdeploy/db build && tsc --project tsconfig.json --outDir dist && node --test dist/test/auth.e2e-spec.js",
     "build": "tsc --project tsconfig.json --outDir dist",
     "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@nestjs/common": "12.1.1",
+    "@nestjs/core": "12.1.1",
+    "@nestjs/platform-express": "12.1.1",
+    "@devdeploy/db": "workspace:*",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.0",
+    "@types/supertest": "7.2.1",
+    "supertest": "7.3.0"
   }
 }
