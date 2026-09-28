@@ -22,6 +22,7 @@
 - Platform database backups: seven daily/four weekly, with an isolated restore drill. The example application is stateless and has no data migration rollback.
 - Serve Next.js and the NestJS API under one HTTPS origin (`/` for web, `/api/v1/*` for API). Browser requests use relative API URLs; server-rendered pages call the internal API with forwarded session cookie and `cache: 'no-store'`.
 - Do not expose PostgreSQL, worker, Docker API, Prometheus, or Loki publicly. Pin actions and container dependencies before deployment. Never commit actual secrets.
+- Public-repository rule: no hardcoded credentials, private host access details, database URLs with passwords, or secret fallbacks in code, docs, test fixtures, CI YAML, Dockerfiles, image layers, or browser bundles. Only synthetic values and non-working placeholders in `.env.example`; use runtime configuration validation and protected GitHub environment secrets. Follow `agent.md`'s pre-push history/working-tree scan gate before the first public push and every later push.
 - Document deviations from the spec in `docs/decisions.md` before relying on them. Use one focused commit per completed task; never push or deploy without the user's authorization in the execution session.
 
 ## Review Focus
@@ -37,6 +38,8 @@ Five input/failure classes to explicitly test in the owning tasks:
 ## Execution protocol
 
 Work in a new Git repository or isolated branch/worktree. The paths below are **new-repository targets**; if a repo already exists when execution starts, inspect it first and adapt paths without overwriting unrelated work. At each task, write the named failing test, run it red, implement only that contract, run focused tests green, run the package checks shown, inspect the diff for secrets, and commit. Record the commit, test output, and deviations in `docs/progress.md`. Real host changes, DNS, credentials, and protected GitHub settings require an authorized environment and should not be simulated as completed. Provide a local mock/test result if infrastructure is unavailable, then identify that gate as pending.
+
+**Before any public push:** run the separate gate in `agent.md` over all Git history/refs, staged/working files, and built frontend assets. A clean current diff alone is insufficient because earlier local commits will also be published. Do not claim the repository is safe until that gate has actually passed; record only redacted evidence.
 
 ### Package map and file ownership
 
@@ -289,7 +292,7 @@ Work in a new Git repository or isolated branch/worktree. The paths below are **
 - [ ] **Step 1 — Red:** End-to-end scenario asserts good A→B release, CI gate rejection, failing C keeps/restores B, manual rollback to A, ordered events and logs, and restored DB row counts. Add 20 sequential release attempts and 1 RPS/10-minute measurement scripts on a disposable host.
 - [ ] **Step 2 — Run:** `corepack pnpm test:e2e && bash scripts/smoke.sh`; expect failure before completing wiring/evidence.
 - [ ] **Step 3 — Implement:** Fix integration gaps only, document commands and actual observations, add failure/incident runbook and final demonstration script. No unrelated stretch feature.
-- [ ] **Step 4 — Verify:** `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build && corepack pnpm test:e2e`; on authorized demo infrastructure, run `bash scripts/smoke.sh` and isolated restore. A failed gate stays reported as failed/pending; do not claim a live deployment from mocks.
+- [ ] **Step 4 — Verify:** `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build && corepack pnpm test:e2e`; run `agent.md`'s full pre-push secret/history/bundle review before publishing any branch. On authorized demo infrastructure, run `bash scripts/smoke.sh` and isolated restore. A failed gate stays reported as failed/pending; do not claim a live deployment from mocks.
 - [ ] **Step 5 — Commit:** `git add tests scripts/smoke.sh docs README.md && git commit -m "test: prove DevDeploy practicum acceptance gates"`; tag a release only after all required G1–G7 gates pass and user has authorized release.
 
 ## Milestones and stop conditions

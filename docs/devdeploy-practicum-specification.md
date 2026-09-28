@@ -341,6 +341,10 @@ The placeholder above is an illustrative format. Real requests must contain the 
 
 ## 11. Security model
 
+**Public-source policy:** The repository is intended to be public. Commit no real passwords, tokens, signing keys, private registry credentials, credential-bearing URLs, local backups or private host access details in source, tests, docs, CI configuration, Dockerfiles, generated images, or browser bundles. `.env.example` contains non-working placeholders; runtime configuration validates required values and fails closed without hardcoded secret fallbacks. Store real values in protected runtime environment/files and GitHub Actions secrets. Safe source constants such as status names, route paths and timeouts are allowed.
+
+**Pre-push gate:** Before the first public push and every later push, inspect staged files and all Git commits/refs that would be published, run secret scanning against history and working files, inspect CI/Dockerfile/documentation and the built frontend for leaked server-side values, and record redacted evidence. `.gitignore` does not remove a previously committed secret. If a real credential has ever entered history, revoke/rotate it before repairing the history; if published, treat it as exposed. Enable GitHub secret scanning and push protection as an additional gate, not a substitute for local review.
+
 | Risk | Control | Evidence |
 | --- | --- | --- |
 | Credentials committed | Gitleaks scans source/history in CI; `.env` ignored; rotated demo-only fixture | CI fails for safe test fixture |

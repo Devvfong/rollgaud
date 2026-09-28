@@ -55,6 +55,14 @@ The approved documents are supplied separately as `devdeploy-practicum-specifica
 - Keep credentials and full environment dumps out of `deployment_events` messages/metadata. Alloy reads journal logs without a Docker socket; Grafana/Loki do not replace the database audit trail.
 - Back up platform PostgreSQL plus Compose/Traefik configuration; prove a restore into an isolated database. The sample application is stateless and its external data is outside platform backup scope.
 
+## Mandatory pre-push publication gate
+
+Before the first public push and every later push, inspect staged and working files, every local ref and reachable commit, CI configuration, Dockerfiles, built frontend assets, and runtime configuration. Run Gitleaks against history and the current tree with full redaction, and record only command results, commit IDs, paths, and rule IDs.
+
+The publication branch must not track real credentials, private keys, credential-bearing URLs, private host details, `.env`, `.qodo/`, `documentation/`, or archives. `.env.example` contains deliberately non-working placeholders only. Real configuration is injected at runtime from protected environment/files or GitHub Actions secrets, and required configuration must fail closed when missing or malformed; never use a hardcoded secret fallback.
+
+If a real credential or private key is found, stop publication. Revoke and rotate it with the issuing service, remove it from every reachable history ref using an approved rewrite, rerun this gate, and obtain explicit authorization before any force-push. Do not copy the value into logs, reports, tickets, or command output. The eventual CI workflow must enforce equivalent scans before image publication or release notification.
+
 ## Verification and reporting
 
 For each task, report:
