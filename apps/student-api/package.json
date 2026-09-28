@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "lint": "tsc --noEmit --project tsconfig.json",
-    "test": "node --test",
+    "test": "tsc --project tsconfig.json --outDir dist && node --test dist/test/http.test.js",
     "build": "tsc --project tsconfig.json --outDir dist",
     "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.0"
   }
 }
