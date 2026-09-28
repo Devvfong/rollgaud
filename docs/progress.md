@@ -31,3 +31,13 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Local image check: built `devdeploy-student-api:task2` from the digest-pinned Dockerfile, bound it only to `127.0.0.1`, and observed `/health` as `{"status":"ok"}` plus `/version` with the configured 40-character SHA and `v1`.
 - Live GitHub/server gate: not applicable; no registry publish, deployment, DNS, or server configuration was attempted.
 - Next task: Task 3 awaits review.
+
+## Task 3 execution evidence
+
+- Red check: `corepack pnpm --filter @devdeploy/db test:integration` exited 1 before a database client/schema existed; the compiler reported the missing `db` export and missing Node test declarations.
+- Implementation: added the initial Prisma migration for users, projects, releases, deployments, ordered deployment events, and scoped hashed API credentials. Project slug/domain, release `(project_id, workflow_run_id)`, and event `(deployment_id, sequence)` are database constraints. The same-project current-release rule remains the Task 7 application transaction invariant.
+- Green integration check: with a fresh unprinted runtime PostgreSQL password, `DOCKER_HOST=unix:///var/run/docker.sock docker compose -f infrastructure/compose/compose.local.yml up -d postgres && corepack pnpm --filter @devdeploy/db prisma:migrate && corepack pnpm --filter @devdeploy/db test:integration` exited 0. The migration applied and the one integration test passed its duplicate-domain, duplicate-run, duplicate-event, and hash-column checks.
+- Environment substitution: this machine's active Docker daemon is at `unix:///var/run/docker.sock`, so the documented Compose command used `DOCKER_HOST` rather than the unavailable default context. A `psql SELECT 1` readiness loop replaced `pg_isready`, because PostgreSQL can accept sockets before its requested database is created. The disposable local Compose stack and volume were removed after evidence capture.
+- Workspace checks: `corepack pnpm -r typecheck && corepack pnpm -r test` exited 0; the DB unit test passed and the existing contracts/student API tests remained green.
+- Live GitHub/server gate: not applicable; no remote, registry publish, deployment, DNS, or server configuration was attempted.
+- Next task: Task 4.

@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  active
+  disabled
+}
+
+enum DeploymentTrigger {
+  ci
+  manual_redeploy
+  manual_rollback
+}
+
+enum DeploymentStatus {
+  queued
+  preparing
+  probing
+  switching
+  succeeded
+  failed
+  rolled_back
+  recovery_failed
+  cancelled
+}
+
+enum DeploymentSlot {
+  blue
+  green
+}
+
+model User {
+  id                   String       @id @default(uuid()) @db.Uuid
+  email                String       @unique
+  passwordHash         String       @map("password_hash")
+  disabledAt           DateTime?    @map("disabled_at") @db.Timestamptz(6)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  requestedDeployments Deployment[] @relation("RequestedBy")
+
+  @@map("users")
+}
+
+model Project {
+  id               String        @id @default(uuid()) @db.Uuid
+  slug             String        @unique
+  name             String
+  repository       String
+  branch           String
+  imageNamespace   String        @map("image_namespace")
+  domain           String        @unique
+  port             Int
+  healthPath       String        @map("health_path")
+  status           ProjectStatus @default(active)
+  currentReleaseId String?       @unique @map("current_release_id") @db.Uuid
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  currentRelease Release?        @relation("CurrentRelease", fields: [currentReleaseId], references: [id], onDelete: SetNull)
+  releases       Release[]       @relation("ProjectReleases")
+  deployments    Deployment[]
+  apiCredentials ApiCredential[]
+
+  @@index([repository, branch])
+  @@map("projects")
+}
+
+model Release {
+  id                String   @id @default(uuid()) @db.Uuid
+  projectId         String   @map("project_id") @db.Uuid
+  commitSha         String   @map("commit_sha")
+  workflowRunId     String   @map("workflow_run_id")
+  imageDigest       String   @map("image_digest")
+  scanPolicyVersion String   @map("scan_policy_version")
+  approvedAt        DateTime @default(now()) @map("approved_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project             Project      @relation("ProjectReleases", fields: [projectId], references: [id], onDelete: Cascade)
+  currentForProject   Project?     @relation("CurrentRelease")
+  deployments         Deployment[] @relation("DeploymentRelease")
+  previousDeployments Deployment[] @relation("PreviousRelease")
+
+  @@unique([projectId, workflowRunId])
+  @@index([projectId, approvedAt])
+  @@map("releases")
+}
+
+model Deployment {
+  id                String            @id @default(uuid()) @db.Uuid
+  projectId         String            @map("project_id") @db.Uuid
+  releaseId         String            @map("release_id") @db.Uuid
+  previousReleaseId String?           @map("previous_release_id") @db.Uuid
+  trigger           DeploymentTrigger
+  status            DeploymentStatus  @default(queued)
+  requestedById     String?           @map("requested_by") @db.Uuid
+  slot              DeploymentSlot?
+  startedAt         DateTime?         @map("started_at") @db.Timestamptz(6)
+  completedAt       DateTime?         @map("completed_at") @db.Timestamptz(6)
+  failureCode       String?           @map("failure_code")
+  leaseUntil        DateTime?         @map("lease_until") @db.Timestamptz(6)
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  release         Release           @relation("DeploymentRelease", fields: [releaseId], references: [id], onDelete: Restrict)
+  previousRelease Release?          @relation("PreviousRelease", fields: [previousReleaseId], references: [id], onDelete: Restrict)
+  requestedBy     User?             @relation("RequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  events          DeploymentEvent[]
+
+  @@index([projectId, status, createdAt])
+  @@index([releaseId])
+  @@map("deployments")
+}
+
+model DeploymentEvent {
+  id           String   @id @default(uuid()) @db.Uuid
+  deploymentId String   @map("deployment_id") @db.Uuid
+  sequence     Int
+  eventCode    String   @map("event_code")
+  message      String
+  metadata     Json?    @map("metadata_json") @db.JsonB
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  deployment Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  @@unique([deploymentId, sequence])
+  @@map("deployment_events")
+}
+
+model ApiCredential {
+  id         String    @id @default(uuid()) @db.Uuid
+  projectId  String    @map("project_id") @db.Uuid
+  secretHash String    @map("secret_hash")
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(6)
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, revokedAt])
+  @@map("api_credentials")
+}

@@ -5,8 +5,18 @@
   "type": "module",
   "scripts": {
     "lint": "tsc --noEmit --project tsconfig.json",
-    "test": "node --test",
-    "build": "tsc --project tsconfig.json --outDir dist",
-    "typecheck": "tsc --noEmit --project tsconfig.json"
+    "test": "prisma generate && tsc --project tsconfig.json --outDir dist && node --test dist/test/client.unit.test.js",
+    "test:integration": "prisma generate && tsc --project tsconfig.json --outDir dist && node --test dist/test/schema.int.test.js",
+    "build": "prisma generate && tsc --project tsconfig.json --outDir dist",
+    "typecheck": "prisma generate && tsc --noEmit --project tsconfig.json",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.0",
+    "prisma": "6.19.0"
   }
 }

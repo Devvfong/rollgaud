@@ -1,1 +1,1 @@
-export const packageName = '@devdeploy/db';
+export { db } from './client.js';
