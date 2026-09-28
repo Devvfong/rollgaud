@@ -1,0 +1,19 @@
+{
+  "name": "devdeploy",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@12.6.0",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "12.6.0"
+  },
+  "scripts": {
+    "lint": "corepack pnpm -r --if-present lint",
+    "test": "corepack pnpm -r --if-present test",
+    "build": "corepack pnpm -r --if-present build",
+    "typecheck": "corepack pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}
