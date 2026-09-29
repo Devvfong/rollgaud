@@ -1,0 +1,62 @@
+name: Release approved DevDeploy artifact
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  submit:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    environment: devdeploy-production
+    env:
+      WORKFLOW_REPOSITORY: ${{ github.event.workflow_run.repository.full_name }}
+      WORKFLOW_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+      WORKFLOW_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+      DEVDEPLOY_API_URL: ${{ secrets.DEVDEPLOY_API_URL }}
+      DEVDEPLOY_WORKFLOW_TOKEN: ${{ secrets.DEVDEPLOY_WORKFLOW_TOKEN }}
+      DEVDEPLOY_PROJECT_ID: ${{ vars.DEVDEPLOY_PROJECT_ID }}
+    steps:
+      - name: Download triggering release manifest
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-manifest
+          path: release-manifest
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate and submit manifest
+        run: |
+          node --input-type=module <<'EOF'
+          import { readFileSync } from 'node:fs';
+
+          const manifest = JSON.parse(readFileSync('release-manifest/release-manifest.json', 'utf8'));
+          const expected = ['branch', 'commitSha', 'imageDigest', 'repository', 'workflowRunId'];
+          if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)
+            || Object.keys(manifest).sort().join(',') !== expected.join(',')) throw new Error('manifest schema mismatch');
+          if (manifest.repository !== process.env.WORKFLOW_REPOSITORY
+            || manifest.branch !== process.env.WORKFLOW_BRANCH
+            || manifest.workflowRunId !== process.env.WORKFLOW_RUN_ID
+            || manifest.commitSha !== process.env.WORKFLOW_COMMIT_SHA) throw new Error('manifest does not match triggering CI run');
+          if (!/^ghcr\.io\/[a-z0-9][a-z0-9._/-]*@sha256:[a-f0-9]{64}$/.test(manifest.imageDigest)) throw new Error('manifest digest is malformed');
+          if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(process.env.DEVDEPLOY_PROJECT_ID ?? '')) throw new Error('project ID is malformed');
+          if (!process.env.DEVDEPLOY_WORKFLOW_TOKEN) throw new Error('workflow credential is missing');
+          const endpoint = new URL(process.env.DEVDEPLOY_API_URL ?? '');
+          if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) throw new Error('deployment API URL is invalid');
+          const url = new URL(`/api/v1/ci/projects/${encodeURIComponent(process.env.DEVDEPLOY_PROJECT_ID)}/releases`, endpoint.origin);
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { authorization: `Bearer ${process.env.DEVDEPLOY_WORKFLOW_TOKEN}`, 'content-type': 'application/json' },
+            body: JSON.stringify(manifest),
+          });
+          if (response.status !== 202) throw new Error(`release submission rejected with status ${response.status}`);
+          EOF

@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out protected source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.21.0
+          cache: pnpm
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Lint and test
+        run: |
+          corepack pnpm lint
+          corepack pnpm test
+      - name: Scan repository for secrets
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/student-api
+      IMAGE_TAG: ghcr.io/${{ github.repository_owner }}/student-api:${{ github.sha }}
+    steps:
+      - name: Check out protected source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Log in to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build candidate image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
+        with:
+          context: .
+          file: apps/student-api/Dockerfile
+          load: true
+          push: false
+          tags: ${{ env.IMAGE_TAG }}
+          build-args: |
+            COMMIT_SHA=${{ github.sha }}
+            APP_VERSION=${{ github.sha }}
+      - name: Scan candidate image
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        with:
+          image-ref: ${{ env.IMAGE_TAG }}
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Push approved image and record digest
+        id: image
+        run: |
+          docker push "$IMAGE_TAG"
+          digest="$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG" | sed 's/.*@//')"
+          test "$digest" != "$IMAGE_TAG"
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+      - name: Write release manifest
+        env:
+          IMAGE_DIGEST: ${{ env.IMAGE_NAME }}@${{ steps.image.outputs.digest }}
+        run: |
+          node --input-type=module <<'EOF'
+          import { writeFileSync } from 'node:fs';
+
+          const manifest = {
+            repository: process.env.GITHUB_REPOSITORY,
+            branch: process.env.GITHUB_REF_NAME,
+            workflowRunId: process.env.GITHUB_RUN_ID,
+            commitSha: process.env.GITHUB_SHA,
+            imageDigest: process.env.IMAGE_DIGEST,
+          };
+          const expected = ['branch', 'commitSha', 'imageDigest', 'repository', 'workflowRunId'];
+          if (Object.keys(manifest).sort().join(',') !== expected.join(',')) throw new Error('manifest schema mismatch');
+          if (Object.values(manifest).some((value) => typeof value !== 'string' || value.length === 0)) throw new Error('manifest contains an empty value');
+          writeFileSync('release-manifest.json', JSON.stringify(manifest));
+          EOF
+      - name: Upload release manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-manifest
+          path: release-manifest.json
+          if-no-files-found: error
+          retention-days: 1

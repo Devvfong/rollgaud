@@ -80,3 +80,12 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Boundary: the public API verifies provenance before its transaction, stores only a SHA-256 hash of a generated workflow credential, and contains no Docker, Compose, subprocess, or shell control path.
 - Live GitHub/server gate: pending; provenance is exercised through injected test verifiers and no remote, deployment, DNS, or server configuration was attempted.
 - Next task: Task 8.
+
+## Task 8 execution evidence
+
+- Red check: `node scripts/check-workflows.mjs` exited 1 while `.github/workflows/ci.yml` was absent.
+- Static workflow check: `node scripts/check-workflows.mjs` exited 0. It verifies the exact Task 6 five-field manifest schema/fixture, immutable action pins, CI lint/test/Gitleaks/Trivy gates, artifact name, protected-main completed-run checks, release isolation from completed-run source, and scanner-demo credential/deployment isolation.
+- YAML validation: Python `yaml.safe_load` validated all three workflow files. Ruby was unavailable on this machine, so the installed Python parser was used without adding a lockfile dependency.
+- Local workspace checks: `corepack pnpm lint`, `typecheck`, `test`, and `build` each exited 0; the API suite passed 20/20 tests.
+- Live GitHub/GHCR gate: pending. No remote is configured, so no protected-main CI, GHCR digest, protected-environment approval, or release submission was attempted.
+- Next task: Task 9.

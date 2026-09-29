@@ -1,0 +1,37 @@
+name: Isolated scanner demonstrations
+
+on:
+  push:
+    branches:
+      - demo/blocked-by-secrets
+      - demo/blocked-by-vuln
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out scanner demo source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Scan for secrets
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
+
+  vulnerabilities:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out scanner demo source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Scan source for critical vulnerabilities
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        with:
+          scan-type: fs
+          scan-ref: apps/student-api
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
