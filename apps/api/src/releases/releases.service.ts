@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { parseReleaseIdentity, type DeploymentStatus, type ProjectConfig, type ReleaseIdentity } from '@devdeploy/contracts';
-import { db } from '@devdeploy/db';
+import { db, type Prisma } from '@devdeploy/db';
 
 export interface ReleaseVerifier {
   verify(project: ProjectConfig, submitted: ReleaseIdentity): Promise<unknown>;
@@ -136,7 +136,7 @@ export class PrismaReleaseStore implements ReleaseStore {
 
   async admit(project: ProjectConfig & { id: string }, identity: ReleaseIdentity): Promise<AdmissionResult> {
     try {
-      return await db.$transaction(async (transaction) => {
+      return await db.$transaction(async (transaction: Prisma.TransactionClient) => {
         const existing = await transaction.release.findUnique({ where: { projectId_workflowRunId: { projectId: project.id, workflowRunId: identity.workflowRunId } } });
         if (existing) {
           const deployment = await transaction.deployment.findFirstOrThrow({ where: { releaseId: existing.id }, orderBy: { createdAt: 'asc' } });
@@ -174,7 +174,7 @@ export class PrismaReleaseStore implements ReleaseStore {
   }
 
   async setCurrentRelease(projectId: string, releaseId: string): Promise<void> {
-    await db.$transaction(async (transaction) => {
+    await db.$transaction(async (transaction: Prisma.TransactionClient) => {
       const release = await transaction.release.findUnique({ where: { id: releaseId } });
       if (!release || release.projectId !== projectId) throw new CrossProjectReleaseError();
       await transaction.project.update({ where: { id: projectId }, data: { currentReleaseId: releaseId } });
@@ -182,13 +182,13 @@ export class PrismaReleaseStore implements ReleaseStore {
   }
 
   async recordEvent(deploymentId: string, eventCode: string, message: string): Promise<void> {
-    await db.$transaction(async (transaction) => {
+    await db.$transaction(async (transaction: Prisma.TransactionClient) => {
       const latest = await transaction.deploymentEvent.findFirst({ where: { deploymentId }, orderBy: { sequence: 'desc' } });
       await transaction.deploymentEvent.create({ data: { deploymentId, sequence: (latest?.sequence ?? 0) + 1, eventCode, message } });
     });
   }
   async queueManual(projectId: string, releaseId: string, trigger: 'manual_redeploy' | 'manual_rollback'): Promise<StoredDeployment> {
-    return db.$transaction(async (transaction) => { const active = await transaction.deployment.findFirst({ where: { projectId, status: { in: ['queued','preparing','probing','switching'] } } }); if (active) throw new QueueInsertionError('active deployment'); const release = await transaction.release.findUnique({ where: { id: releaseId } }); if (!release || release.projectId !== projectId) throw new CrossProjectReleaseError(); if (trigger === 'manual_rollback') { const project = await transaction.project.findUnique({ where: { id: projectId }, include: { currentRelease: true } }); if (!project?.currentRelease || release.approvedAt >= project.currentRelease.approvedAt) throw new QueueInsertionError('rollback target is not an earlier successful release'); } return transaction.deployment.create({ data: { projectId, releaseId, trigger, status: 'queued' } }); });
+    return db.$transaction(async (transaction: Prisma.TransactionClient) => { const active = await transaction.deployment.findFirst({ where: { projectId, status: { in: ['queued','preparing','probing','switching'] } } }); if (active) throw new QueueInsertionError('active deployment'); const release = await transaction.release.findUnique({ where: { id: releaseId } }); if (!release || release.projectId !== projectId) throw new CrossProjectReleaseError(); if (trigger === 'manual_rollback') { const project = await transaction.project.findUnique({ where: { id: projectId }, include: { currentRelease: true } }); if (!project?.currentRelease || release.approvedAt >= project.currentRelease.approvedAt) throw new QueueInsertionError('rollback target is not an earlier successful release'); } return transaction.deployment.create({ data: { projectId, releaseId, trigger, status: 'queued' } }); });
   }
   async setDeploymentStatus(id: string, status: DeploymentStatus): Promise<void> { await db.deployment.update({ where: { id }, data: { status } }); }
 }
