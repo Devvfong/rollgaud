@@ -23,12 +23,28 @@ services:
       GHCR_IMAGE_NAMESPACE: ${GHCR_IMAGE_NAMESPACE:?Set GHCR_IMAGE_NAMESPACE at runtime}
       GITHUB_WORKFLOW_PATH: ${GITHUB_WORKFLOW_PATH:?Set GITHUB_WORKFLOW_PATH at runtime}
       GITHUB_READ_TOKEN: ${GITHUB_READ_TOKEN:?Set GITHUB_READ_TOKEN at runtime}
-    networks: [edge, api-private]
+    logging:
+      driver: journald
+      options:
+        tag: project=rollgaud,service=api,environment=production
+    networks: [edge, api-private, monitoring-private]
     restart: unless-stopped
 
   web:
     image: ghcr.io/example/devdeploy-web:nonworking-placeholder
     networks: [edge]
+    restart: unless-stopped
+
+  student-api:
+    image: ghcr.io/example/student-api:nonworking-placeholder
+    environment:
+      COMMIT_SHA: ${STUDENT_API_COMMIT_SHA:?Set STUDENT_API_COMMIT_SHA at runtime}
+      APP_VERSION: ${STUDENT_API_VERSION:-v1}
+    logging:
+      driver: journald
+      options:
+        tag: project=student-api,service=student-api,environment=production
+    networks: [api-private, monitoring-private]
     restart: unless-stopped
 
   postgres:
@@ -46,10 +62,14 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.5.0
-    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=14d
     configs:
       - source: prometheus-config
         target: /etc/prometheus/prometheus.yml
+      - source: prometheus-alerts
+        target: /etc/prometheus/alerts.yml
     volumes:
       - prometheus-data:/prometheus
     networks: [monitoring-private]
@@ -57,6 +77,10 @@ services:
 
   loki:
     image: grafana/loki:3.5.0
+    command: ["-config.file=/etc/loki/loki.yml"]
+    configs:
+      - source: loki-config
+        target: /etc/loki/loki.yml
     volumes:
       - loki-data:/loki
     networks: [monitoring-private]
@@ -74,20 +98,48 @@ services:
     networks: [monitoring-private]
     restart: unless-stopped
 
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/host/root
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+    networks: [monitoring-private]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD at runtime}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks: [monitoring-private]
+    restart: unless-stopped
+
 volumes:
   platform-db:
   prometheus-data:
   loki-data:
+  grafana-data:
 
 configs:
   prometheus-config:
-    content: |
-      global:
-        scrape_interval: 30s
-      scrape_configs: []
+    file: ../monitoring/prometheus.yml
+  prometheus-alerts:
+    file: ../monitoring/alerts.yml
+  loki-config:
+    file: ../monitoring/loki.yml
   alloy-config:
-    content: |
-      logging { level = "info" }
+    file: ../monitoring/alloy.alloy
 
 networks:
   edge:

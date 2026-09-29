@@ -56,6 +56,23 @@ async function request(server: Server, path: string): Promise<{ statusCode: numb
   });
 }
 
+async function requestText(server: Server, path: string): Promise<{ statusCode: number; body: string }> {
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string');
+
+  return new Promise((resolve, reject) => {
+    const request = get({ host: '127.0.0.1', port: address.port, path }, (response) => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk: string) => {
+        body += chunk;
+      });
+      response.on('end', () => resolve({ statusCode: response.statusCode ?? 0, body }));
+    });
+    request.once('error', reject);
+  });
+}
+
 const validEnvironment = {
   COMMIT_SHA: '0123456789abcdef0123456789abcdef01234567',
   APP_VERSION: 'v1',
@@ -89,6 +106,22 @@ test('serves the configured commit SHA and application version', { concurrency: 
       statusCode: 200,
       body: { commitSha: validEnvironment.COMMIT_SHA, version: validEnvironment.APP_VERSION },
     });
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('serves request, error, and latency metrics without request-id labels', { concurrency: false }, async () => {
+  const server = await startServer(validEnvironment);
+
+  try {
+    await request(server, '/health');
+    await request(server, '/missing');
+    const metrics = await requestText(server, '/metrics');
+    assert.equal(metrics.statusCode, 200);
+    assert.match(metrics.body, /devdeploy_http_requests_total/);
+    assert.match(metrics.body, /devdeploy_http_request_duration_seconds_count/);
+    assert.doesNotMatch(metrics.body, /request[_-]?id/i);
   } finally {
     await stopServer(server);
   }

@@ -1,0 +1,27 @@
+groups:
+  - name: devdeploy-availability
+    rules:
+      - alert: ApplicationUnavailable
+        expr: up{job="student-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Sample application is unavailable
+          description: The student-api Prometheus target has been down for two minutes.
+      - alert: DiskUsageHigh
+        expr: (1 - (node_filesystem_avail_bytes{job="node-exporter",mountpoint="/",fstype!=""} / node_filesystem_size_bytes{job="node-exporter",mountpoint="/",fstype!=""})) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Host disk use is above 85 percent
+          description: Root filesystem use has exceeded 85 percent for ten minutes.
+      - alert: RecoveryFailed
+        expr: increase(devdeploy_recovery_failed_total[1m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: Release recovery failed
+          description: A deployment recorded recovery_failed and requires operator action.

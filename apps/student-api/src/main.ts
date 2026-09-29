@@ -1,5 +1,8 @@
 import { createServer, type Server, type ServerResponse } from 'node:http';
 import { pathToFileURL } from 'node:url';
+import { performance } from 'node:perf_hooks';
+
+import { HttpMetrics } from './metrics.js';
 
 export interface StudentApiConfig {
   commitSha: string;
@@ -27,10 +30,22 @@ function writeJson(response: ServerResponse, statusCode: number, body: unknown):
   response.end(JSON.stringify(body));
 }
 
+function writeMetrics(response: ServerResponse, metrics: HttpMetrics): void {
+  response.writeHead(200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8' });
+  response.end(metrics.render());
+}
+
 export function createStudentApi(environment: NodeJS.ProcessEnv = process.env): Server {
   const config = readStudentApiConfig(environment);
+  const metrics = new HttpMetrics('student-api');
 
   return createServer((request, response) => {
+    const started = performance.now();
+    response.once('finish', () => metrics.observe(request.method ?? 'UNKNOWN', request.url?.split('?')[0] ?? '/', response.statusCode, performance.now() - started));
+    if (request.method === 'GET' && request.url === '/metrics') {
+      writeMetrics(response, metrics);
+      return;
+    }
     if (request.method === 'GET' && request.url === '/health') {
       writeJson(response, 200, { status: 'ok' });
       return;

@@ -1,0 +1,26 @@
+loki.source.journal "host" {
+  max_age    = "1h"
+  labels     = { job = "journal" }
+  forward_to = [loki.process.platform.receiver]
+}
+
+loki.process "platform" {
+  stage.regex {
+    source     = "SYSLOG_IDENTIFIER"
+    expression = "project=(?P<project>[^,]+),service=(?P<service>[^,]+),environment=(?P<environment>[^,]+)"
+  }
+  stage.labels {
+    values = {
+      project     = "project",
+      service     = "service",
+      environment = "environment",
+    }
+  }
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

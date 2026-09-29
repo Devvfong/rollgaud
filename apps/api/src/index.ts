@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { Controller, Get, Module, ServiceUnavailableException, type DynamicModule } from '@nestjs/common';
+import { Controller, Get, Header, Module, ServiceUnavailableException, type DynamicModule } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { db } from '@devdeploy/db';
 
@@ -18,6 +18,7 @@ import { CredentialService, InMemoryCredentialStore, PrismaCredentialStore, Work
 import { CredentialsController } from './releases/credentials.controller.js';
 import { ReleasesController } from './releases/releases.controller.js';
 import { InMemoryReleaseStore, PrismaReleaseStore, ReleaseAdmissionService, type ReleaseVerifier } from './releases/releases.service.js';
+import { HttpMetrics } from './metrics.js';
 
 const syntheticTestAllowlist: ProjectAllowlist = {
   repository: 'example/student-api',
@@ -42,17 +43,29 @@ class HealthController {
   }
 }
 
+@Controller()
+class MetricsController {
+  constructor(private readonly metrics: HttpMetrics) {}
+
+  @Get('metrics')
+  @Header('content-type', 'text/plain; version=0.0.4; charset=utf-8')
+  metricsText() {
+    return this.metrics.render();
+  }
+}
+
 @Module({})
 class ApiModule {
-  static register(authService: AuthService, projectsService: ProjectsService, credentials: CredentialService, releases: ReleaseAdmissionService): DynamicModule {
+  static register(authService: AuthService, projectsService: ProjectsService, credentials: CredentialService, releases: ReleaseAdmissionService, metrics: HttpMetrics): DynamicModule {
     return {
       module: ApiModule,
-      controllers: [AuthController, HealthController, ProjectsController, CredentialsController, ReleasesController, DeploymentsController],
+      controllers: [AuthController, HealthController, MetricsController, ProjectsController, CredentialsController, ReleasesController, DeploymentsController],
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: ProjectsService, useValue: projectsService },
         { provide: CredentialService, useValue: credentials },
         { provide: ReleaseAdmissionService, useValue: releases },
+        { provide: HttpMetrics, useValue: metrics },
         { provide: DeploymentsService, useValue: new DeploymentsService(releases) },
         AdminGuard,
         CsrfGuard,
@@ -74,9 +87,11 @@ export async function createApiApp(options: CreateApiAppOptions) {
   const projects = new ProjectsService(new InMemoryProjectStore(), syntheticTestAllowlist);
   const releaseStore = new InMemoryReleaseStore({ failQueueInsert: options.failQueueInsert, now: options.now });
   const releases = new ReleaseAdmissionService(releaseStore, options.verifier ?? { verify: async () => { throw new Error('GitHub verifier is not configured'); } }, (id) => projects.findById(id));
-  const app = await NestFactory.create(ApiModule.register(new AuthService(store), projects, new CredentialService(new InMemoryCredentialStore(), options.now), releases), {
+  const metrics = new HttpMetrics('api');
+  const app = await NestFactory.create(ApiModule.register(new AuthService(store), projects, new CredentialService(new InMemoryCredentialStore(), options.now), releases, metrics), {
     logger: false,
   });
+  app.use(metrics.middleware());
   await app.init();
 
   return {
@@ -94,12 +109,15 @@ export async function createProductionApiApp() {
     new GitHubRunVerifier(new GitHubHttpClient(github.readToken), { workflowPath: github.workflowPath }),
     (id) => projects.findById(id),
   );
+  const metrics = new HttpMetrics('api');
   const app = await NestFactory.create(ApiModule.register(
     new AuthService(new PrismaAuthStore()),
     projects,
     new CredentialService(new PrismaCredentialStore()),
     releases,
+    metrics,
   ));
+  app.use(metrics.middleware());
   await app.init();
   return app;
 }

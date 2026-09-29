@@ -1,0 +1,52 @@
+{
+  "uid": "rollgaud-overview",
+  "title": "RollGaud health and deployments",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Student API target",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "refId": "A", "expr": "up{job=\"student-api\"}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Request rate and 5xx",
+      "gridPos": { "h": 8, "w": 12, "x": 6, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(devdeploy_http_requests_total[5m])) by (service)", "legendFormat": "{{service}} requests" },
+        { "refId": "B", "expr": "sum(rate(devdeploy_http_errors_total[5m])) by (service)", "legendFormat": "{{service}} 5xx" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Request latency",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [{ "refId": "A", "expr": "sum(rate(devdeploy_http_request_duration_seconds_sum[5m])) by (service) / sum(rate(devdeploy_http_request_duration_seconds_count[5m])) by (service)", "legendFormat": "{{service}} average" }]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Deployment duration and recovery failures",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "refId": "A", "expr": "devdeploy_deployment_duration_seconds", "legendFormat": "deployment duration" },
+        { "refId": "B", "expr": "increase(devdeploy_recovery_failed_total[5m])", "legendFormat": "recovery_failed" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "logs",
+      "title": "Application journal",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "targets": [{ "refId": "A", "expr": "{job=\"journal\",service=~\"api|student-api\"}" }]
+    }
+  ]
+}
