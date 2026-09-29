@@ -8,9 +8,16 @@ import { AdminGuard } from './auth/admin.guard.js';
 import { AuthController } from './auth/auth.controller.js';
 import { AuthService, InMemoryAuthStore, PrismaAuthStore, type SeedAdministrator } from './auth/auth.service.js';
 import { CsrfGuard } from './auth/csrf.guard.js';
-import { loadGitHubServerConfiguration } from './github/github-http.client.js';
+import { DeploymentsController } from './deployments/deployments.controller.js';
+import { DeploymentsService } from './deployments/deployments.service.js';
+import { GitHubHttpClient, loadGitHubServerConfiguration } from './github/github-http.client.js';
+import { GitHubRunVerifier } from './github/github-run-verifier.js';
 import { ProjectsController } from './projects/projects.controller.js';
 import { InMemoryProjectStore, PrismaProjectStore, ProjectsService, type ProjectAllowlist } from './projects/projects.service.js';
+import { CredentialService, InMemoryCredentialStore, PrismaCredentialStore, WorkflowCredentialGuard } from './releases/credential.guard.js';
+import { CredentialsController } from './releases/credentials.controller.js';
+import { ReleasesController } from './releases/releases.controller.js';
+import { InMemoryReleaseStore, PrismaReleaseStore, ReleaseAdmissionService, type ReleaseVerifier } from './releases/releases.service.js';
 
 const syntheticTestAllowlist: ProjectAllowlist = {
   repository: 'example/student-api',
@@ -37,15 +44,19 @@ class HealthController {
 
 @Module({})
 class ApiModule {
-  static register(authService: AuthService, projectsService: ProjectsService): DynamicModule {
+  static register(authService: AuthService, projectsService: ProjectsService, credentials: CredentialService, releases: ReleaseAdmissionService): DynamicModule {
     return {
       module: ApiModule,
-      controllers: [AuthController, HealthController, ProjectsController],
+      controllers: [AuthController, HealthController, ProjectsController, CredentialsController, ReleasesController, DeploymentsController],
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: ProjectsService, useValue: projectsService },
+        { provide: CredentialService, useValue: credentials },
+        { provide: ReleaseAdmissionService, useValue: releases },
+        { provide: DeploymentsService, useValue: new DeploymentsService(releases) },
         AdminGuard,
         CsrfGuard,
+        WorkflowCredentialGuard,
       ],
     };
   }
@@ -53,11 +64,17 @@ class ApiModule {
 
 export interface CreateApiAppOptions {
   administrator: SeedAdministrator;
+  verifier?: ReleaseVerifier;
+  now?: () => Date;
+  failQueueInsert?: boolean;
 }
 
 export async function createApiApp(options: CreateApiAppOptions) {
   const store = await InMemoryAuthStore.withAdministrator(options.administrator);
-  const app = await NestFactory.create(ApiModule.register(new AuthService(store), new ProjectsService(new InMemoryProjectStore(), syntheticTestAllowlist)), {
+  const projects = new ProjectsService(new InMemoryProjectStore(), syntheticTestAllowlist);
+  const releaseStore = new InMemoryReleaseStore({ failQueueInsert: options.failQueueInsert, now: options.now });
+  const releases = new ReleaseAdmissionService(releaseStore, options.verifier ?? { verify: async () => { throw new Error('GitHub verifier is not configured'); } }, (id) => projects.findById(id));
+  const app = await NestFactory.create(ApiModule.register(new AuthService(store), projects, new CredentialService(new InMemoryCredentialStore(), options.now), releases), {
     logger: false,
   });
   await app.init();
@@ -65,14 +82,23 @@ export async function createApiApp(options: CreateApiAppOptions) {
   return {
     server: app.getHttpServer(),
     close: () => app.close(),
+    releaseService: releases,
   };
 }
 
 export async function createProductionApiApp() {
   const github = loadGitHubServerConfiguration(process.env);
+  const projects = new ProjectsService(new PrismaProjectStore(), { repository: github.repository, imageNamespace: github.imageNamespace });
+  const releases = new ReleaseAdmissionService(
+    new PrismaReleaseStore(),
+    new GitHubRunVerifier(new GitHubHttpClient(github.readToken), { workflowPath: github.workflowPath }),
+    (id) => projects.findById(id),
+  );
   const app = await NestFactory.create(ApiModule.register(
     new AuthService(new PrismaAuthStore()),
-    new ProjectsService(new PrismaProjectStore(), { repository: github.repository, imageNamespace: github.imageNamespace }),
+    projects,
+    new CredentialService(new PrismaCredentialStore()),
+    releases,
   ));
   await app.init();
   return app;

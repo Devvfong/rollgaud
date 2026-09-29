@@ -70,3 +70,13 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Configuration boundary: production startup validates `GITHUB_REPOSITORY`, `GHCR_IMAGE_NAMESPACE`, `GITHUB_WORKFLOW_PATH`, and `GITHUB_READ_TOKEN`; values in `.env.example` are non-working runtime placeholders. The GitHub origin is fixed to `https://api.github.com`, with encoded path segments and no secret logging.
 - Live GitHub/server gate: pending; tests use mocked HTTP responses and no remote, deployment, DNS, or server configuration was attempted.
 - Next task: Task 7.
+
+## Task 7 execution evidence
+
+- Red check: `corepack pnpm --filter @devdeploy/api test:e2e -- release-admission.e2e-spec` exited 1 before the Task 7 routes existed; the credential endpoint returned `404`. Subsequent red cases exposed the missing UUID credential ID and invalid-expiry `400` mapping before their fixes.
+- Green e2e check: the focused command exited 0 with 9/9 e2e tests. It covers admin-only/CSRF-protected credential creation and revocation, hashed/scoped/expired credentials, verified release admission, duplicate idempotency, stale runs, GitHub verifier failure, atomic queue failure, release/deployment history, ordered events, and same-project current-release enforcement.
+- PostgreSQL integration: with a fresh disposable local Compose database and an unprinted runtime-only password, `corepack pnpm --filter @devdeploy/db prisma:migrate && corepack pnpm --filter @devdeploy/db test:integration` exited 0; the schema integration test passed. The loopback-only stack and its newly created volume were removed after capture.
+- API package checks: `corepack pnpm --filter @devdeploy/api lint`, `typecheck`, and `build` each exited 0. The final full `corepack pnpm --filter @devdeploy/api test` run passed 20/20.
+- Boundary: the public API verifies provenance before its transaction, stores only a SHA-256 hash of a generated workflow credential, and contains no Docker, Compose, subprocess, or shell control path.
+- Live GitHub/server gate: pending; provenance is exercised through injected test verifiers and no remote, deployment, DNS, or server configuration was attempted.
+- Next task: Task 8.
