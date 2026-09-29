@@ -172,6 +172,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@devdeploy/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@devdeploy/db':
         specifier: workspace:*
         version: link:../../packages/db

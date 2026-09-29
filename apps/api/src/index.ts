@@ -8,6 +8,8 @@ import { AdminGuard } from './auth/admin.guard.js';
 import { AuthController } from './auth/auth.controller.js';
 import { AuthService, InMemoryAuthStore, PrismaAuthStore, type SeedAdministrator } from './auth/auth.service.js';
 import { CsrfGuard } from './auth/csrf.guard.js';
+import { ProjectsController } from './projects/projects.controller.js';
+import { InMemoryProjectStore, PrismaProjectStore, ProjectsService } from './projects/projects.service.js';
 
 @Controller('/api/v1/health')
 class HealthController {
@@ -29,12 +31,13 @@ class HealthController {
 
 @Module({})
 class ApiModule {
-  static register(authService: AuthService): DynamicModule {
+  static register(authService: AuthService, projectsService: ProjectsService): DynamicModule {
     return {
       module: ApiModule,
-      controllers: [AuthController, HealthController],
+      controllers: [AuthController, HealthController, ProjectsController],
       providers: [
         { provide: AuthService, useValue: authService },
+        { provide: ProjectsService, useValue: projectsService },
         AdminGuard,
         CsrfGuard,
       ],
@@ -48,7 +51,7 @@ export interface CreateApiAppOptions {
 
 export async function createApiApp(options: CreateApiAppOptions) {
   const store = await InMemoryAuthStore.withAdministrator(options.administrator);
-  const app = await NestFactory.create(ApiModule.register(new AuthService(store)), {
+  const app = await NestFactory.create(ApiModule.register(new AuthService(store), new ProjectsService(new InMemoryProjectStore())), {
     logger: false,
   });
   await app.init();
@@ -60,7 +63,7 @@ export async function createApiApp(options: CreateApiAppOptions) {
 }
 
 export async function createProductionApiApp() {
-  const app = await NestFactory.create(ApiModule.register(new AuthService(new PrismaAuthStore())));
+  const app = await NestFactory.create(ApiModule.register(new AuthService(new PrismaAuthStore()), new ProjectsService(new PrismaProjectStore())));
   await app.init();
   return app;
 }

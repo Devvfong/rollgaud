@@ -51,3 +51,12 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Typechecks: `corepack pnpm --filter @devdeploy/api typecheck && corepack pnpm --filter @devdeploy/db typecheck` exited 0.
 - Live GitHub/server gate: pending; no remote, deployment, DNS, or server configuration was attempted.
 - Next task: Task 5.
+
+## Task 5 execution evidence
+
+- Red check: `corepack pnpm --filter @devdeploy/api test:e2e -- projects.e2e-spec` reached the existing authentication tests, then observed the missing project routes as `404`.
+- Green checks: the focused command and `corepack pnpm --filter @devdeploy/api test` both passed all 5 authentication/project e2e tests. The catalog tests cover authenticated create/list/detail, duplicate slug/domain `409`, malformed domain/path, foreign namespace, invalid port `400`, and unauthenticated `401`.
+- Package checks: `corepack pnpm --filter @devdeploy/api lint`, `typecheck`, and `build` each exited 0.
+- Boundary: requests are restricted to name plus validated `ProjectConfig` fields; they have no accepted Compose YAML, shell command, or host-path field. Production persistence uses Prisma; e2e uses an isolated in-memory store.
+- Live GitHub/server gate: pending; no remote, deployment, DNS, or server configuration was attempted.
+- Next task: Task 6.

@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 
 import { AuthService } from './auth.service.js';
 import { cookieValue } from './csrf.guard.js';
@@ -9,6 +9,9 @@ export class AdminGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<{ headers: Record<string, string | undefined> }>();
-    return (await this.auth.authenticatedUser(cookieValue(request.headers.cookie))) !== null;
+    if ((await this.auth.authenticatedUser(cookieValue(request.headers.cookie))) === null) {
+      throw new UnauthorizedException();
+    }
+    return true;
   }
 }

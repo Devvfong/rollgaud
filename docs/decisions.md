@@ -14,4 +14,6 @@ Record implementation choices that change or clarify the approved specification.
 
 | 2026-09-28 | Task 4 adds persisted `AdminSession` records and uses opaque random session/CSRF values stored only as SHA-256 hashes | Revocation and anonymous-to-authenticated CSRF binding cannot be safely implemented with a purely stateless cookie or process memory | Adds the `admin_sessions` migration; the application fails readiness when PostgreSQL cannot answer a query | Accepted |
 
+| 2026-09-29 | Task 5 allows only `example/student-api` and `ghcr.io/example/student-api` in the MVP project catalog | The practicum manages one known demo application; accepting arbitrary repositories or namespaces would bypass the trusted release boundary | Project requests are parsed by shared contracts and rejected before persistence when outside the server-side allowlist | Accepted |
+
 **Next entry:** Record actual dependency/image revisions and any changes needed during Task 1.
