@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily RollGaud backup schedule
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 UTC
+Persistent=true
+RandomizedDelaySec=15m
+Unit=devdeploy-backup.service
+
+[Install]
+WantedBy=timers.target

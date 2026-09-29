@@ -1,0 +1,18 @@
+[Unit]
+Description=RollGaud protected PostgreSQL backup and configuration snapshot
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=devdeploy-backup
+Group=devdeploy-backup
+EnvironmentFile=/etc/devdeploy/backup.env
+ExecStart=/opt/devdeploy/scripts/backup-platform.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/devdeploy
+ReadOnlyPaths=/opt/devdeploy
+UMask=0077
