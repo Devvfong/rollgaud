@@ -37,14 +37,19 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/student-api
-      IMAGE_TAG: ghcr.io/${{ github.repository_owner }}/student-api:${{ github.sha }}
     steps:
       - name: Check out protected source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Set lowercase image references
+        id: names
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          owner="$(printf '%s' "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          printf 'image_name=ghcr.io/%s/student-api\n' "$owner" >> "$GITHUB_OUTPUT"
+          printf 'image_tag=ghcr.io/%s/student-api:%s\n' "$owner" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
       - name: Log in to GHCR
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
         with:
@@ -58,20 +63,22 @@ jobs:
           file: apps/student-api/Dockerfile
           load: true
           push: false
-          tags: ${{ env.IMAGE_TAG }}
+          tags: ${{ steps.names.outputs.image_tag }}
           build-args: |
             COMMIT_SHA=${{ github.sha }}
             APP_VERSION=${{ github.sha }}
       - name: Scan candidate image
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
         with:
-          image-ref: ${{ env.IMAGE_TAG }}
+          image-ref: ${{ steps.names.outputs.image_tag }}
           format: table
           severity: CRITICAL
           ignore-unfixed: true
           exit-code: '1'
       - name: Push approved image and record digest
         id: image
+        env:
+          IMAGE_TAG: ${{ steps.names.outputs.image_tag }}
         run: |
           docker push "$IMAGE_TAG"
           digest="$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG" | sed 's/.*@//')"
@@ -79,7 +86,7 @@ jobs:
           printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
       - name: Write release manifest
         env:
-          IMAGE_DIGEST: ${{ env.IMAGE_NAME }}@${{ steps.image.outputs.digest }}
+          IMAGE_DIGEST: ${{ steps.names.outputs.image_name }}@${{ steps.image.outputs.digest }}
         run: |
           node --input-type=module <<'EOF'
           import { writeFileSync } from 'node:fs';
