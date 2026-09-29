@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "lint": "tsc --noEmit --project tsconfig.json",
-    "test": "corepack pnpm --filter @devdeploy/api test:e2e",
+    "test": "corepack pnpm --filter @devdeploy/contracts build && corepack pnpm --filter @devdeploy/db build && tsc --project tsconfig.json --outDir dist && node --test dist/test/*.spec.js dist/test/*.e2e-spec.js",
     "test:e2e": "corepack pnpm --filter @devdeploy/contracts build && corepack pnpm --filter @devdeploy/db build && tsc --project tsconfig.json --outDir dist && node --test dist/test/*.e2e-spec.js",
     "build": "tsc --project tsconfig.json --outDir dist",
     "typecheck": "tsc --noEmit --project tsconfig.json"
