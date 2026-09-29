@@ -23,3 +23,11 @@ Review the rendered configuration with `docker compose -f infrastructure/compose
 ## Emergency route restoration
 
 Stop the worker before emergency intervention. Preserve the current route file, identify the last verified release and digest from the database, and restore a complete known-good route file through an atomic replacement owned by `devdeploy-worker`. Verify `/health` and `/version.commitSha` over the public HTTPS endpoint before restarting the worker. If the old image cannot be pulled, keep the currently serving route intact and escalate; never delete the last known-good image or claim `rolled_back` without public verification. Record the incident and any transient 502 as an availability failure.
+
+## Acceptance smoke and capacity evidence
+
+The local acceptance flow is exercised with `corepack pnpm test:e2e`. On an authorized disposable host, set `SMOKE_ORIGIN`, `SMOKE_PROJECT_ID`, `SMOKE_DB_HOST`, `SMOKE_DB_PORT`, `SMOKE_DB_USER`, `SMOKE_DB_NAME`, and a protected `SMOKE_DB_PASSWORD` environment value, then run `bash scripts/smoke.sh`. The script uses `curl --fail-with-body` for `/health` and `/version`, compares the returned commit SHA with `projects.current_release_id`, and emits only a short SHA prefix. It does not accept credentials in URLs or command-line arguments.
+
+The 20-release and sustained 1 RPS scripts are guarded by `AUTHORIZED_DISPOSABLE_HOST=1`, require a protected curl config, validate UUID/path inputs, and have not been run in this checkout. Never use them against a production host as a substitute for an approved capacity plan. Record elapsed time, errors, host resources, and the exact commit in the evidence matrix; absence of those measurements stays `PENDING`.
+
+After an isolated restore, run the worker startup reconciliation before admitting new work. Confirm the database current release, route file, Docker slots, and public `/version` agree. Keep separate off-host backup storage and retain the manual DNS/TLS and emergency route-restoration steps above; a local mock or disposable database cannot prove host recovery.

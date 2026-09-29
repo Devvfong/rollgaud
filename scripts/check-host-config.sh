@@ -21,7 +21,7 @@ compose = yaml.safe_load(compose_path.read_text())
 if not isinstance(compose, dict) or not isinstance(compose.get('services'), dict):
     raise SystemExit('platform Compose must define services')
 services = compose['services']
-if set(services) - {'traefik', 'api', 'web', 'postgres', 'prometheus', 'loki', 'alloy'}:
+if set(services) - {'traefik', 'api', 'web', 'student-api', 'postgres', 'prometheus', 'loki', 'alloy', 'node-exporter', 'grafana'}:
     raise SystemExit('unexpected public host service')
 if set(services['traefik'].get('ports', [])) != {'80:80', '443:443'}:
     raise SystemExit('only Traefik may publish exactly ports 80 and 443')

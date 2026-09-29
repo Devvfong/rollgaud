@@ -1,47 +1,29 @@
-# DevDeploy Practicum Report
-
-**Status:** Draft structure. Fill the results and discussion from actual implementation and measured tests, not the proposal.
+# RollGaud Practicum Report
 
 ## Abstract
 
-DevDeploy proposes a one-host deployment controller for a Dockerized stateless web application. The completed abstract should state the implemented method, measured outcomes, and observed limits. **Results pending.**
+RollGaud implements a single-host deployment controller around immutable CI artifacts, verified release provenance, fixed runtime templates, health probes, traffic switching, recovery, observability, and protected PostgreSQL backups. Local unit, integration, static configuration, and mocked release-flow tests are recorded in `docs/test-report.md`. A public deployment, GitHub/GHCR run, authorized host, public HTTPS endpoint, and capacity measurement were not available, so this report does not claim production readiness.
 
-## 1. Introduction and problem
+## 1. Scope and objectives
 
-Manual SSH deployments can lead to inconsistent steps, hard-to-trace releases and slow recovery. Define the target setting and why a self-hosted controller is useful for a small team. Compare a direct GitHub Actions-to-SSH workflow with DevDeploy's centralized release history, checks and recovery. State that a simple single-app team may reasonably use direct Actions instead.
+The implementation follows specification goals G1–G7 for one administrator, one stateless demonstration application, one Ubuntu host, and one PostgreSQL platform database. Multi-tenant hosting, multi-host failover, arbitrary Compose input, and database migration rollback remain outside scope. The visible product name is RollGaud; existing DevDeploy document filenames and historical task names are retained for traceability.
 
-## 2. Objectives, scope and requirements
+## 2. Implemented method
 
-Reference specification G1–G7, one Ubuntu host, one administrator, one stateless demo app. Exclude multi-tenant hosting, multi-host failover and database migration rollback. Add lecturer-approved scope changes with dates.
+GitHub workflows lint, test, scan, build and emit a release manifest; the API verifies repository, workflow, branch, commit and immutable image digest before queueing a release. A worker claims one project attempt at a time, renders fixed Compose and Traefik files, probes the inactive slot, switches traffic atomically, verifies the public SHA, and records rollback or recovery failure. The dashboard uses typed contracts and same-origin authentication. Prometheus, Grafana, Loki and Alloy configuration is private by default. Backup scripts create checksummed dumps and configuration snapshots and restore only to an explicitly supplied isolated target.
 
-## 3. Related tools and selected approach
+## 3. Evidence and results
 
-Explain what GitHub Actions, GHCR, Docker Compose, Traefik, Prometheus/Grafana and Loki/Alloy already do. Explain which logic DevDeploy itself implements: provenance check, deployment state, worker orchestration, route verification, rollback and dashboard. Cite official documentation and any academic sources required by the program.
+The complete G1–G7 matrix is in `docs/test-report.md`. The Task 17 harness runs healthy A→B, scanner rejection, unhealthy C preservation, post-switch restoration to B, manual rollback to A, ordered events, and isolated row-copy restore. Task 16's disposable PostgreSQL drill matched schema and project/deployment/event row counts. Sequential lint, typecheck, test, build, task checks, and static host/observability/workflow checks were run locally; exact output is recorded in `docs/progress.md`.
 
-## 4. System analysis and design
+## 4. Security and operational evaluation
 
-Add context/component diagrams, trust boundaries, domain model, database ERD, API table, state machine, UI page map and sample deployment sequence. Link `docs/architecture.md` and `docs/api.md`.
+The API and web services have no Docker socket or route write access. Runtime secrets are supplied through protected environment/CI storage, not committed files or browser bundles. The pre-push audit reviewed all reachable local refs, working files, workflows, Dockerfiles, configuration, and build output with redacted reporting. The Gitleaks executable was unavailable in this environment, so publication remains blocked until a current history and directory scan is run. GitHub secret scanning/push protection, live Trivy/GHCR evidence, and host recovery are also pending.
 
-## 5. Implementation
+## 5. Limitations and next evidence
 
-Describe actual source layout, worker isolation, CI manifests, fixed Compose/route templates, frontend integration, observability and backup job. Include important code excerpts only when they explain a design decision.
+No remote is configured and no server, DNS, TLS, registry, or deployment was changed. Public HTTPS probes, unhealthy-image recovery over HTTP 200, live rollback, Prometheus/Grafana/Loki correlation, alert firing, off-host backup replication, and 20-release/1-RPS capacity measurements are pending. The guarded measurement scripts refuse to run without explicit disposable-host authorization. No screenshots or resource numbers are fabricated.
 
-## 6. Test method and results
+## 6. Conclusion
 
-Use `docs/test-report.md`. Include actual environment, commands, runs, screenshots, recovery time, HTTP response during failure, 20-deployment disk behavior, 1 RPS measurement, and isolated restore. Distinguish passes, failures and untested gates.
-
-## 7. Security and operational evaluation
-
-Use `docs/security.md`. Discuss Docker socket privilege, single-host availability, CI provenance, scanner findings and practical mitigations. Explain that image scanning does not prove an application has no vulnerabilities.
-
-## 8. Limitations and future work
-
-State actual unresolved findings, one-server failure mode, stateless-only rollback, GitHub/registry dependencies, and measured capacity. Possible future work: multi-host isolation, stronger artifact attestation, alerts and self-service onboarding.
-
-## 9. Conclusion
-
-Report whether each objective was met using evidence, without claiming production readiness beyond what was tested.
-
-## References and appendices
-
-Add official documentation and cited research; append configuration snapshots, workflow URLs, redacted logs, UI screenshots, database diagram, test matrix and restore transcript. Follow RUPP/lecturer formatting requirements when known.
+Local implementation and acceptance harness work is complete through Task 17, but G1–G7 are not all proven in a live environment. The final practicum release and tag therefore remain pending until the external gates in `docs/test-report.md` are executed and reviewed.

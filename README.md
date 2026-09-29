@@ -1,15 +1,15 @@
-# DevDeploy
+# RollGaud
 
-**Status:** Planning baseline. Application code, CI results, live deployment, and test evidence are pending.
+**Status:** Local acceptance harness complete; live G1–G7 evidence remains pending.
 
-DevDeploy is a self-hosted controller for one Ubuntu host. GitHub Actions tests and scans a stateless demonstration application, publishes an immutable GHCR image, and submits a successful CI run. DevDeploy verifies the run and image digest, starts a new slot, checks internal and public health, switches HTTPS traffic, and restores the last healthy version if verification fails.
+RollGaud is a self-hosted controller for one Ubuntu host. GitHub Actions tests and scans a stateless demonstration application, publishes an immutable GHCR image, and submits a successful CI run. RollGaud verifies the run and image digest, starts a new slot, checks internal and public health, switches HTTPS traffic, and restores the last healthy version if verification fails.
 
 ## Start here
 
 1. Read [`docs/devdeploy-practicum-specification.md`](docs/devdeploy-practicum-specification.md) for product scope and acceptance goals.
 2. Read [`docs/superpowers/plans/2026-09-28-devdeploy-implementation.md`](docs/superpowers/plans/2026-09-28-devdeploy-implementation.md) for the 17 build tasks.
 3. Agents read [`AGENTS.md`](AGENTS.md) and [`agent.md`](agent.md).
-4. Execute Task 1 first. This archive is a **documentation starter**, not an application that already runs.
+4. The implementation is locally testable, but this repository has no configured remote, GHCR registry, public DNS/TLS endpoint, or authorized production host.
 
 ## Planned stack
 
@@ -32,7 +32,7 @@ Node.js 24 LTS, pnpm, NestJS, Next.js, PostgreSQL/Prisma, Docker Compose, Traefi
 
 ## Commands
 
-Once Task 1 creates package scripts:
+Run local checks sequentially to limit RAM pressure:
 
 ```bash
 corepack pnpm install --frozen-lockfile
@@ -40,9 +40,12 @@ corepack pnpm lint
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm build
+corepack pnpm test:e2e
 ```
 
-Do not claim these commands pass until their output is recorded in `docs/progress.md` and `docs/test-report.md`. Actual local startup, environment variables, domain and server setup must be added after implementation in Task 12.
+The acceptance harness is also available through `corepack pnpm test:e2e`. On an authorized disposable host, provide protected runtime variables and run `bash scripts/smoke.sh`; it probes `/health`, `/version`, and the database current release without printing credentials. `scripts/run-sequential-releases.sh` and `scripts/load-1rps.sh` refuse to run unless `AUTHORIZED_DISPOSABLE_HOST=1`; they have not been run here because no such host is authorized.
+
+The final report in [`docs/test-report.md`](docs/test-report.md) is an evidence matrix, not a production-readiness claim. No release or tag is created until every G1–G7 live gate is independently proven.
 
 ## Scope
 

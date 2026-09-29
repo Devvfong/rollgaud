@@ -1,28 +1,19 @@
-# Test and Acceptance Report
+# RollGaud test and acceptance report
 
-**Status:** Pending implementation. The results below are a checklist, not evidence of passing tests.
+This matrix records only evidence actually available in the local checkout. “PASS (local)” means a deterministic unit, integration, static, or mocked test; it is not evidence of a public deployment. Live GitHub, GHCR, HTTPS, host, alert, and capacity gates remain pending without an authorized environment.
 
-| Goal | Test evidence to attach | Actual result |
-| --- | --- | --- |
-| G1 Protected push triggers tests/scans/build/release | GitHub run URL, SHA, matching digest and deployment ID | Pending |
-| G2 Failed tests/scans block release | Fake-secret and controlled vulnerability runs | Pending |
-| G3 Healthy digest serves over HTTPS | Certificate check and `/version` equals target SHA | Pending |
-| G4 Bad release keeps/restores last good | Failed attempt events; prior version HTTP 200 | Pending |
-| G5 Manual rollback | New attempt ID, old SHA restored and verified | Pending |
-| G6 Incident observable | Grafana metrics, Loki logs, deployment timeline | Pending |
-| G7 Platform data recoverable | Backup checksum and isolated DB restore | Pending |
+| Goal | Expected result | Command / run URL / artifact | Actual observation | Status |
+| --- | --- | --- | --- | --- |
+| G1 Protected push and immutable release | Protected-main CI completes lint/test, scans, publishes an approved digest and matching manifest; API admits it | `node scripts/check-workflows.mjs`; no GitHub run URL (no remote) | Static workflow checks pass locally; no remote, CI run, GHCR digest, or protected-environment approval exists | PENDING |
+| G2 Rejected quality/security gate | Failed tests, Gitleaks, or Trivy prevent release and demo scans have no deploy credential | `node scripts/check-workflows.mjs`; `corepack pnpm test`; redacted audit in `docs/security.md` | Workflow isolation/static checks and local tests pass; live Gitleaks/Trivy execution and GitHub branch protection are not observed | PASS (local) / PENDING (live) |
+| G3 Healthy release over public HTTPS | Candidate probes return exact health/version and public route serves target SHA | `corepack pnpm test:e2e`; `bash scripts/smoke.sh` (requires authorized host) | Six local release-flow cases pass; smoke script is guarded and was not run against a host; no DNS/TLS/public route is configured | PASS (local) / PENDING (live) |
+| G4 Bad release recovery | Unhealthy C never replaces B; post-switch failure restores B and proves its public SHA | `corepack pnpm test:e2e`; worker/API focused suites in `docs/progress.md` | Local harness covers failed-before-switch and rolled-back public verification with ordered events; live unhealthy image and HTTP 200 recovery are untested | PASS (local) / PENDING (live) |
+| G5 Manual rollback | Rollback is a new authenticated attempt and restores an earlier known-good release | `corepack pnpm test:e2e`; API rollback e2e from Task 11 | Harness creates a distinct manual rollback attempt and serves A; no live host rollback was run | PASS (local) / PENDING (live) |
+| G6 Metrics, logs, and alerts | Request/error/latency metrics, journal labels, dashboards and alerts correlate with a deployment | `bash scripts/check-observability.sh`; API/student metrics tests; `corepack pnpm test` | Configuration and local metrics tests pass; no live Prometheus target, Grafana panel, Loki line, or alert firing was observed | PASS (local) / PENDING (live) |
+| G7 Backup and isolated restore | Protected dump/config snapshot verifies and restores into a different database with matching rows | `bash scripts/test-backup.sh`; disposable PostgreSQL drill recorded in Task 16 progress | Checksum/permissions/retention tests pass; disposable restore matched schema and project/deployment/event counts (1/1); off-host/production restore remains untested | PASS (local) / PENDING (live) |
 
-## Additional checks
+## Task 17 local acceptance flow
 
-- API unit/e2e: auth/CSRF, project validation, provenance mismatch, duplicate/out-of-order CI run, concurrent attempt.
-- Worker integration: pre-switch failure, public probe mismatch, route restore, crash reconciliation, missing old registry image.
-- Frontend browser: login, form errors, same-origin integration, `202` queued status, status polling, rollback confirmation, mobile width and keyboard access.
-- Capacity: 20 sequential deployments within a day and 1 request/second for 10 minutes on reference host; record actual resource use and error count.
+`tests/e2e/release-flow.spec.ts` runs six scenarios: healthy A→B, scanner rejection, unhealthy C preserving B, post-switch C rollback to B, manual rollback to A, and isolated row-copy restore. `scripts/smoke.sh` is a host-side contract probe; it has not been run because no authorized disposable host or public origin exists. `scripts/run-sequential-releases.sh` and `scripts/load-1rps.sh` intentionally exit `2` with a `PENDING` message unless `AUTHORIZED_DISPOSABLE_HOST=1`; no capacity measurement is claimed.
 
-## Executed commands and results
-
-```text
-Pending — include exact command, date, exit code, test count, environment, and redacted output or artifact link after execution.
-```
-
-Never change a pending result to pass without executing the corresponding check.
+The browser screenshot gate is also pending because no headless/browser surface was available in this environment. No screenshot or CI URL is fabricated here. See `docs/progress.md` for exact sequential command results and the final commit SHA.

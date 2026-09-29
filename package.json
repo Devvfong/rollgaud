@@ -10,6 +10,7 @@
   "scripts": {
     "lint": "corepack pnpm -r --if-present lint",
     "test": "corepack pnpm -r --if-present test",
+    "test:e2e": "corepack pnpm --filter @devdeploy/contracts build && corepack pnpm --filter @devdeploy/deploy-worker build && node --experimental-strip-types --test tests/e2e/release-flow.spec.ts",
     "build": "corepack pnpm -r --if-present build",
     "typecheck": "corepack pnpm -r --if-present typecheck"
   },
