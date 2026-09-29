@@ -1,0 +1,12 @@
+http:
+  routers:
+    student-api:
+      rule: Host(`student-api.example.test`)
+      service: student-api-blue
+      entryPoints: [websecure]
+      tls: {}
+  services:
+    student-api-blue:
+      loadBalancer:
+        servers:
+          - url: http://devdeploy-student-api-blue:3000

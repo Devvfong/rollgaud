@@ -99,3 +99,13 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Limitation: the worker only claims/renews durable jobs and can render/start isolated application slots. It neither probes applications nor changes a Traefik route; health verification, traffic switching, and recovery remain Task 10–11 work.
 - Live GitHub/server gate: pending. No remote, registry action, deployment, DNS, or server configuration was attempted.
 - Next task: Task 10.
+
+## Task 10 execution evidence
+
+- Red check: `corepack pnpm --filter @devdeploy/deploy-worker test -- health-probe.test deploy-attempt.int.test` exited 1 before the Task 10 probe and deployment modules existed.
+- Focused check: the same command exited 0 with 9 passing tests (and the two Task 9 database tests skipped without `DATABASE_URL`). It covers healthy release success, bad candidate before switching, wrong public SHA with verified restoration, malformed health/version JSON, timeout, first-release failure without invented rollback, and failed recovery.
+- Traefik source validation: Python `yaml.safe_load` accepted `infrastructure/traefik/static.yml` and `infrastructure/traefik/dynamic/example.yml`. An attempted `traefik:v3.3 check --configFile=...` exited 127 because that image has no `check` subcommand; a full running Traefik validation remains pending Task 12 host Compose. The file provider watches its parent directory, so atomic route-file renames are observable.
+- Workspace checks: `corepack pnpm lint`, `corepack pnpm typecheck`, `corepack pnpm test`, and `corepack pnpm build` each exited 0; API tests passed 20/20.
+- Limitation: no authorized test domain or TLS certificate is configured. The public HTTPS curl/good-image integration gate is pending; no server route was changed. Previous slots are never stopped in this task, preserving them for the planned 30-minute cleanup policy.
+- Live GitHub/server gate: pending. No remote, registry action, deployment, DNS, or server configuration was attempted.
+- Next task: Task 11.
