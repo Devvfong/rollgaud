@@ -109,3 +109,11 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Limitation: no authorized test domain or TLS certificate is configured. The public HTTPS curl/good-image integration gate is pending; no server route was changed. Previous slots are never stopped in this task, preserving them for the planned 30-minute cleanup policy.
 - Live GitHub/server gate: pending. No remote, registry action, deployment, DNS, or server configuration was attempted.
 - Next task: Task 11.
+
+## Task 11 execution evidence
+
+- Red checks: the focused worker check failed before `queue/reconcile.ts` existed; the rollback e2e route was then added under the authenticated/CSRF-protected deployment controller.
+- Focused checks: `corepack pnpm --filter @devdeploy/deploy-worker test -- reconcile.int.test recover.int.test` exited 0 with 12 passing tests (2 database-only Task 9 tests skipped without `DATABASE_URL`); `corepack pnpm --filter @devdeploy/api test:e2e -- rollback.e2e-spec` exited 0 with 11/11 e2e tests.
+- Behavior: reconciliation is idempotent and records an expired/uncertain lease as requiring reconciliation instead of claiming another job. Manual deploy/rollback actions are authenticated and CSRF-protected, queue new attempts only when no active attempt exists, and concurrent actions produce one queued attempt plus one `409`. First-release failures remain `failed`; restoration is `rolled_back` only after the previous public SHA verifies, otherwise `recovery_failed`. Approved digests are re-pulled when absent and fail closed when unavailable; cleanup/retention helpers preserve the active and most recent known-good digests and use the 30-minute previous-slot window.
+- Limitation: a disposable authorized host, test domain, and TLS route were unavailable. No unhealthy image or public old-version probe was run; that live-worker gate remains pending.
+- Next task: Task 12.

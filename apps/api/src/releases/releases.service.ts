@@ -48,6 +48,8 @@ export interface ReleaseStore {
   findDeployment(id: string): Promise<(StoredDeployment & { events: StoredDeploymentEvent[] }) | null>;
   setCurrentRelease(projectId: string, releaseId: string): Promise<void>;
   recordEvent(deploymentId: string, eventCode: string, message: string): Promise<void>;
+  queueManual(projectId: string, releaseId: string, trigger: 'manual_redeploy' | 'manual_rollback'): Promise<StoredDeployment>;
+  setDeploymentStatus(id: string, status: DeploymentStatus): Promise<void>;
 }
 
 export class StaleReleaseError extends Error {}
@@ -114,6 +116,14 @@ export class InMemoryReleaseStore implements ReleaseStore {
     if (!events) throw new Error('deployment not found');
     events.push({ id: randomUUID(), deploymentId, sequence: events.length + 1, eventCode, message, createdAt: (this.options.now ?? (() => new Date()))() });
   }
+  async queueManual(projectId: string, releaseId: string, _trigger: 'manual_redeploy' | 'manual_rollback'): Promise<StoredDeployment> {
+    if ([...this.deployments.values()].some((item) => item.projectId === projectId && ['queued','preparing','probing','switching'].includes(item.status))) throw new QueueInsertionError('active deployment');
+    const release = this.releases.get(releaseId); if (!release || release.projectId !== projectId) throw new CrossProjectReleaseError();
+    if (_trigger === 'manual_rollback') { const currentId = this.currentReleaseIds.get(projectId); const current = currentId ? this.releases.get(currentId) : undefined; if (!current || release.approvedAt >= current.approvedAt) throw new QueueInsertionError('rollback target is not an earlier successful release'); }
+    const now = (this.options.now ?? (() => new Date()))(); const deployment = { id: randomUUID(), projectId, releaseId, status: 'queued' as const, createdAt: now };
+    this.deployments.set(deployment.id, deployment); this.events.set(deployment.id, [{ id: randomUUID(), deploymentId: deployment.id, sequence: 1, eventCode: 'MANUAL_QUEUED', message: 'Manual deployment queued.', createdAt: now }]); return deployment;
+  }
+  async setDeploymentStatus(id: string, status: DeploymentStatus): Promise<void> { const deployment = this.deployments.get(id); if (!deployment) throw new Error('deployment not found'); deployment.status = status; }
 }
 
 export class PrismaReleaseStore implements ReleaseStore {
@@ -177,6 +187,10 @@ export class PrismaReleaseStore implements ReleaseStore {
       await transaction.deploymentEvent.create({ data: { deploymentId, sequence: (latest?.sequence ?? 0) + 1, eventCode, message } });
     });
   }
+  async queueManual(projectId: string, releaseId: string, trigger: 'manual_redeploy' | 'manual_rollback'): Promise<StoredDeployment> {
+    return db.$transaction(async (transaction) => { const active = await transaction.deployment.findFirst({ where: { projectId, status: { in: ['queued','preparing','probing','switching'] } } }); if (active) throw new QueueInsertionError('active deployment'); const release = await transaction.release.findUnique({ where: { id: releaseId } }); if (!release || release.projectId !== projectId) throw new CrossProjectReleaseError(); if (trigger === 'manual_rollback') { const project = await transaction.project.findUnique({ where: { id: projectId }, include: { currentRelease: true } }); if (!project?.currentRelease || release.approvedAt >= project.currentRelease.approvedAt) throw new QueueInsertionError('rollback target is not an earlier successful release'); } return transaction.deployment.create({ data: { projectId, releaseId, trigger, status: 'queued' } }); });
+  }
+  async setDeploymentStatus(id: string, status: DeploymentStatus): Promise<void> { await db.deployment.update({ where: { id }, data: { status } }); }
 }
 
 export class ReleaseAdmissionService {
@@ -201,4 +215,6 @@ export class ReleaseAdmissionService {
   async deployment(id: string) { return this.store.findDeployment(id); }
   async setCurrentRelease(projectId: string, releaseId: string) { return this.store.setCurrentRelease(projectId, releaseId); }
   async recordEvent(deploymentId: string, eventCode: string, message: string) { return this.store.recordEvent(deploymentId, eventCode, message); }
+  async queueManual(projectId: string, releaseId: string, trigger: 'manual_redeploy' | 'manual_rollback') { return this.store.queueManual(projectId, releaseId, trigger); }
+  async setDeploymentStatus(id: string, status: DeploymentStatus) { return this.store.setDeploymentStatus(id, status); }
 }
