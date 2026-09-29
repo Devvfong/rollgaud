@@ -1,4 +1,4 @@
-import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 
 import { db } from '@devdeploy/db';
 
@@ -195,7 +195,7 @@ export class AuthService {
     const token = randomOpaque();
     const csrfToken = randomOpaque();
     await this.store.createSession({
-      id: randomOpaque(),
+      id: randomUUID(),
       userId,
       tokenHash: hashOpaque(token),
       csrfHash: hashOpaque(csrfToken),

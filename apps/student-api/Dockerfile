@@ -18,7 +18,7 @@ ARG COMMIT_SHA
 ARG APP_VERSION=v1
 ENV COMMIT_SHA=${COMMIT_SHA} APP_VERSION=${APP_VERSION}
 
-COPY --from=build --chown=node:node /workspace/apps/student-api/dist/main.js ./main.js
+COPY --from=build --chown=node:node /workspace/apps/student-api/dist/*.js ./
 
 USER node
 EXPOSE 3000
