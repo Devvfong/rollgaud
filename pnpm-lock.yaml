@@ -213,7 +213,18 @@ importers:
         specifier: 7.3.0
         version: 7.3.0
 
-  apps/deploy-worker: {}
+  apps/deploy-worker:
+    dependencies:
+      '@devdeploy/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@devdeploy/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.0
+        version: 24.19.0
 
   apps/student-api:
     devDependencies:

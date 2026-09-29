@@ -89,3 +89,13 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Local workspace checks: `corepack pnpm lint`, `typecheck`, `test`, and `build` each exited 0; the API suite passed 20/20 tests.
 - Live GitHub/GHCR gate: pending. No remote is configured, so no protected-main CI, GHCR digest, protected-environment approval, or release submission was attempted.
 - Next task: Task 9.
+
+## Task 9 execution evidence
+
+- Red check: `corepack pnpm --filter @devdeploy/deploy-worker test -- worker.int.test docker-compose-adapter.test` exited 1 while the Task 9 queue and runtime modules were absent.
+- Focused durable-worker check: with a disposable loopback-only PostgreSQL service, a fresh unprinted runtime password, and the two existing migrations applied, `corepack pnpm --filter @devdeploy/deploy-worker test -- worker.int.test docker-compose-adapter.test` exited 0 with 5/5 tests. It proves two concurrent workers produce one `preparing` claim/lease for a project and an expired lease leaves its queued successor unclaimed for Task 11 reconciliation.
+- Compose validation: `docker compose -f /tmp/devdeploy-test-project.yml config` exited 0. The rendered safe fixture has an internal `expose` port only, 0.50 CPU/256 MiB limits, journald logging, dropped capabilities, read-only root filesystem, and no privileged mode, Docker socket, secret/env mount, or published host port.
+- Workspace checks: `corepack pnpm lint`, `corepack pnpm typecheck`, `corepack pnpm test`, and `corepack pnpm build` each exited 0. The normal root test run skips the two database-backed worker cases when `DATABASE_URL` is absent; the focused disposable-database run above is the green evidence for those cases. API tests passed 20/20.
+- Limitation: the worker only claims/renews durable jobs and can render/start isolated application slots. It neither probes applications nor changes a Traefik route; health verification, traffic switching, and recovery remain Task 10–11 work.
+- Live GitHub/server gate: pending. No remote, registry action, deployment, DNS, or server configuration was attempted.
+- Next task: Task 10.

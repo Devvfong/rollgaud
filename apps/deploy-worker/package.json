@@ -5,8 +5,16 @@
   "type": "module",
   "scripts": {
     "lint": "tsc --noEmit --project tsconfig.json",
-    "test": "node --test",
+    "test": "corepack pnpm --filter @devdeploy/contracts build && corepack pnpm --filter @devdeploy/db build && tsc --project tsconfig.json --outDir dist && node --test dist/test/*.test.js",
+    "test:integration": "corepack pnpm --filter @devdeploy/deploy-worker test",
     "build": "tsc --project tsconfig.json --outDir dist",
     "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@devdeploy/contracts": "workspace:*",
+    "@devdeploy/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.0"
   }
 }
