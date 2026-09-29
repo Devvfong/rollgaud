@@ -136,3 +136,13 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Browser limitation: the configured computer-use browser was unavailable, so live viewport screenshots could not be captured. The focused responsive assertions and CSS media rules passed; no live API integration was attempted.
 - Workspace checks: final `corepack pnpm lint`, `corepack pnpm typecheck`, `corepack pnpm test`, and `corepack pnpm build` are pending after the final UI green run.
 - Next task: Task 14.
+
+## Task 14 execution evidence
+
+- Red checks: `corepack pnpm --filter @devdeploy/web test:e2e -- auth-flow.spec deployment-flow.spec` initially failed while the API client, session/CSRF modules, deployment polling/actions, and focused auth/deployment tests were absent. The compiler reported the missing modules before any implementation existed.
+- Focused green check: the same command exited 0 with 7/7 tests (the two focused auth/deployment suites plus the existing visual-state tests). It verifies same-origin credentials and `X-CSRF-Token`, server-read `cache: 'no-store'` and forwarded cookies, relative-path rejection, 401-to-auth-error handling, exact project fields, queued 202 handling, three-second polling with abort, and typed 409 active-attempt conflicts.
+- Frontend integration: added a relative-only `ApiClient` with typed HTTP/network errors, CSRF/session helpers, boundary validation using the shared project parser, project/release/deployment live data mapping against the Task 4/5/7/11 response contracts, and deploy/rollback queue helpers. Browser mutations use same-origin credentials and CSRF headers; no workflow, registry, database, or server-only values enter the client modules.
+- Routing: updated `infrastructure/traefik/dynamic/example.yml` with non-working `rollgaud.example.test` same-origin `PathPrefix(`/api/v1`)` and web routers. The platform remains unconfigured and no route was applied to a host.
+- Workspace checks: `corepack pnpm lint`, `corepack pnpm typecheck`, `corepack pnpm test`, and `corepack pnpm build` each exited 0. The workspace test run reported 22 API tests, 12 passing worker tests plus 2 expected database-dependent skips without `DATABASE_URL`, 7 web tests, and the existing contracts/student-api/db tests passing.
+- Visual/live limitations: the headless/browser surface was unavailable, so 360px and 1280px screenshots remain pending. The local NestJS/PostgreSQL stack was not started for this frontend-only task; live worker/public HTTPS verification remains pending without an authorized host.
+- Next task: Task 15.

@@ -1,11 +1,30 @@
 http:
   routers:
+    rollgaud-api:
+      rule: Host(`rollgaud.example.test`) && PathPrefix(`/api/v1`)
+      priority: 100
+      service: rollgaud-api
+      entryPoints: [websecure]
+      tls: {}
+    rollgaud-web:
+      rule: Host(`rollgaud.example.test`)
+      service: rollgaud-web
+      entryPoints: [websecure]
+      tls: {}
     student-api:
       rule: Host(`student-api.example.test`)
       service: student-api-blue
       entryPoints: [websecure]
       tls: {}
   services:
+    rollgaud-api:
+      loadBalancer:
+        servers:
+          - url: http://devdeploy-api:3000
+    rollgaud-web:
+      loadBalancer:
+        servers:
+          - url: http://devdeploy-web:3000
     student-api-blue:
       loadBalancer:
         servers:
