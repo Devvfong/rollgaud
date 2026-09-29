@@ -60,3 +60,13 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Boundary: requests are restricted to name plus validated `ProjectConfig` fields; they have no accepted Compose YAML, shell command, or host-path field. Production persistence uses Prisma; e2e uses an isolated in-memory store.
 - Live GitHub/server gate: pending; no remote, deployment, DNS, or server configuration was attempted.
 - Next task: Task 6.
+
+## Task 6 execution evidence
+
+- Red check: `corepack pnpm --filter @devdeploy/api test -- github-run-verifier.spec` exited 1 before implementation because `../src/github/github-run-verifier.js` did not exist.
+- Green mocked provenance check: the same command exited 0 with 16/16 tests. It accepts only a completed, successful `push` run with the exact repository, branch, workflow, commit SHA, run ID, and matching `release-manifest`; it rejects failed/in-progress/non-push/wrong-identity runs, missing or expired artifacts, digest mismatch, traversal/extra ZIP entries, compressed and decompressed size overflow, duplicate JSON keys, and upstream timeout.
+- Focused verifier check: `node --test apps/api/dist/test/github-run-verifier.spec.js` exited 0 with 11/11 verifier/configuration tests.
+- Package checks: `corepack pnpm install --lockfile-only`, `corepack pnpm --filter @devdeploy/api lint`, `typecheck`, and `build` each exited 0.
+- Configuration boundary: production startup validates `GITHUB_REPOSITORY`, `GHCR_IMAGE_NAMESPACE`, `GITHUB_WORKFLOW_PATH`, and `GITHUB_READ_TOKEN`; values in `.env.example` are non-working runtime placeholders. The GitHub origin is fixed to `https://api.github.com`, with encoded path segments and no secret logging.
+- Live GitHub/server gate: pending; tests use mocked HTTP responses and no remote, deployment, DNS, or server configuration was attempted.
+- Next task: Task 7.

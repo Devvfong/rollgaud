@@ -8,8 +8,14 @@ import { AdminGuard } from './auth/admin.guard.js';
 import { AuthController } from './auth/auth.controller.js';
 import { AuthService, InMemoryAuthStore, PrismaAuthStore, type SeedAdministrator } from './auth/auth.service.js';
 import { CsrfGuard } from './auth/csrf.guard.js';
+import { loadGitHubServerConfiguration } from './github/github-http.client.js';
 import { ProjectsController } from './projects/projects.controller.js';
-import { InMemoryProjectStore, PrismaProjectStore, ProjectsService } from './projects/projects.service.js';
+import { InMemoryProjectStore, PrismaProjectStore, ProjectsService, type ProjectAllowlist } from './projects/projects.service.js';
+
+const syntheticTestAllowlist: ProjectAllowlist = {
+  repository: 'example/student-api',
+  imageNamespace: 'ghcr.io/example/student-api',
+};
 
 @Controller('/api/v1/health')
 class HealthController {
@@ -51,7 +57,7 @@ export interface CreateApiAppOptions {
 
 export async function createApiApp(options: CreateApiAppOptions) {
   const store = await InMemoryAuthStore.withAdministrator(options.administrator);
-  const app = await NestFactory.create(ApiModule.register(new AuthService(store), new ProjectsService(new InMemoryProjectStore())), {
+  const app = await NestFactory.create(ApiModule.register(new AuthService(store), new ProjectsService(new InMemoryProjectStore(), syntheticTestAllowlist)), {
     logger: false,
   });
   await app.init();
@@ -63,7 +69,11 @@ export async function createApiApp(options: CreateApiAppOptions) {
 }
 
 export async function createProductionApiApp() {
-  const app = await NestFactory.create(ApiModule.register(new AuthService(new PrismaAuthStore()), new ProjectsService(new PrismaProjectStore())));
+  const github = loadGitHubServerConfiguration(process.env);
+  const app = await NestFactory.create(ApiModule.register(
+    new AuthService(new PrismaAuthStore()),
+    new ProjectsService(new PrismaProjectStore(), { repository: github.repository, imageNamespace: github.imageNamespace }),
+  ));
   await app.init();
   return app;
 }

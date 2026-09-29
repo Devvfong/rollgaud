@@ -15,6 +15,11 @@ export interface ProjectStore {
   findById(id: string): Promise<ProjectRecord | null>;
 }
 
+export interface ProjectAllowlist {
+  repository: string;
+  imageNamespace: string;
+}
+
 export class DuplicateProjectError extends Error {}
 
 export class InMemoryProjectStore implements ProjectStore {
@@ -56,11 +61,8 @@ export class PrismaProjectStore implements ProjectStore {
   }
 }
 
-const allowedRepository = 'example/student-api';
-const allowedImageNamespace = 'ghcr.io/example/student-api';
-
 export class ProjectsService {
-  constructor(private readonly store: ProjectStore) {}
+  constructor(private readonly store: ProjectStore, private readonly allowlist: ProjectAllowlist) {}
 
   async create(input: unknown): Promise<ProjectRecord> {
     if (typeof input !== 'object' || input === null || Array.isArray(input)) {
@@ -73,7 +75,7 @@ export class ProjectsService {
     const config = parseProjectConfig(input);
     const nameValue = (input as Record<string, unknown>).name;
     const name = typeof nameValue === 'string' ? nameValue : '';
-    if (!name || config.repository !== allowedRepository || config.imageNamespace !== allowedImageNamespace) {
+    if (!name || config.repository !== this.allowlist.repository || config.imageNamespace !== this.allowlist.imageNamespace) {
       throw new TypeError('project configuration is not allowed');
     }
     return this.store.create({ id: randomUUID(), name, status: 'active', ...config });

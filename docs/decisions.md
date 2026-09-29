@@ -16,4 +16,6 @@ Record implementation choices that change or clarify the approved specification.
 
 | 2026-09-29 | Task 5 allows only `example/student-api` and `ghcr.io/example/student-api` in the MVP project catalog | The practicum manages one known demo application; accepting arbitrary repositories or namespaces would bypass the trusted release boundary | Project requests are parsed by shared contracts and rejected before persistence when outside the server-side allowlist | Accepted |
 
+| 2026-09-29 | Task 6 moves the project repository, GHCR namespace, and CI workflow to validated runtime server configuration | The former Task 5 values are synthetic test defaults only; a public deployment must not silently use a source-coded repository/workflow allowlist | Production startup fails when the configuration or read-only GitHub credential is missing/malformed; test factories inject synthetic values | Accepted |
+
 **Next entry:** Record actual dependency/image revisions and any changes needed during Task 1.
