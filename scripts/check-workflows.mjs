@@ -50,6 +50,7 @@ requireText(
 requireText(ci, /contents:\s*read/, 'CI grants contents read');
 requireText(ci, /packages:\s*write/, 'CI grants package write only to publish');
 requireText(ci, /corepack pnpm lint[\s\S]*corepack pnpm test/, 'CI runs lint and tests');
+requireText(ci, /docker build[\s\S]*apps\/student-api\/Dockerfile[\s\S]*docker run[\s\S]*\/health[\s\S]*\/version/, 'CI probes the sample image without publishing it');
 requireText(ci, /gitleaks\/gitleaks-action@[0-9a-f]{40}/i, 'CI runs pinned Gitleaks');
 requireText(ci, /aquasecurity\/trivy-action@[0-9a-f]{40}/i, 'CI runs pinned Trivy');
 requireText(ci, /severity:\s*CRITICAL[\s\S]*exit-code:\s*['"]?1/, 'Trivy blocks fixable critical findings');
@@ -59,6 +60,7 @@ for (const field of manifestFields) requireText(ci, new RegExp(`\\b${field}\\b`)
 checkPinnedActions(ci, 'CI');
 
 requireText(release, /workflow_run:\s*\n\s*workflows:\s*\[CI\]\s*\n\s*types:\s*\[completed\]/, 'release listens only to completed CI');
+requireText(release, /vars\.DEVDEPLOY_RELEASE_ENABLED\s*==\s*'true'/, 'release requires an explicit protected enable flag');
 requireText(release, /github\.event\.workflow_run\.conclusion\s*==\s*'success'/, 'release requires successful CI');
 requireText(release, /github\.event\.workflow_run\.event\s*==\s*'push'/, 'release requires a CI push run');
 requireText(release, /github\.event\.workflow_run\.head_branch\s*==\s*'main'/, 'release requires protected main');

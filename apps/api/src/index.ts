@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { Controller, Get, Header, Module, ServiceUnavailableException, type DynamicModule } from '@nestjs/common';
+import { Controller, Get, Header, Inject, Module, ServiceUnavailableException, type DynamicModule } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { db } from '@devdeploy/db';
 
@@ -25,8 +25,12 @@ const syntheticTestAllowlist: ProjectAllowlist = {
   imageNamespace: 'ghcr.io/example/student-api',
 };
 
+const DATABASE_READY_CHECK = Symbol('DATABASE_READY_CHECK');
+
 @Controller('/api/v1/health')
 class HealthController {
+  constructor(@Inject(DATABASE_READY_CHECK) private readonly databaseReady: () => Promise<void>) {}
+
   @Get('live')
   live() {
     return { status: 'ok' };
@@ -35,7 +39,7 @@ class HealthController {
   @Get('ready')
   async ready() {
     try {
-      await db.$queryRaw`SELECT 1`;
+      await this.databaseReady();
       return { status: 'ok' };
     } catch {
       throw new ServiceUnavailableException();
@@ -56,11 +60,12 @@ class MetricsController {
 
 @Module({})
 class ApiModule {
-  static register(authService: AuthService, projectsService: ProjectsService, credentials: CredentialService, releases: ReleaseAdmissionService, metrics: HttpMetrics): DynamicModule {
+  static register(authService: AuthService, projectsService: ProjectsService, credentials: CredentialService, releases: ReleaseAdmissionService, metrics: HttpMetrics, databaseReady: () => Promise<void>): DynamicModule {
     return {
       module: ApiModule,
       controllers: [AuthController, HealthController, MetricsController, ProjectsController, CredentialsController, ReleasesController, DeploymentsController],
       providers: [
+        { provide: DATABASE_READY_CHECK, useValue: databaseReady },
         { provide: AuthService, useValue: authService },
         { provide: ProjectsService, useValue: projectsService },
         { provide: CredentialService, useValue: credentials },
@@ -88,7 +93,7 @@ export async function createApiApp(options: CreateApiAppOptions) {
   const releaseStore = new InMemoryReleaseStore({ failQueueInsert: options.failQueueInsert, now: options.now });
   const releases = new ReleaseAdmissionService(releaseStore, options.verifier ?? { verify: async () => { throw new Error('GitHub verifier is not configured'); } }, (id) => projects.findById(id));
   const metrics = new HttpMetrics('api');
-  const app = await NestFactory.create(ApiModule.register(new AuthService(store), projects, new CredentialService(new InMemoryCredentialStore(), options.now), releases, metrics), {
+  const app = await NestFactory.create(ApiModule.register(new AuthService(store), projects, new CredentialService(new InMemoryCredentialStore(), options.now), releases, metrics, async () => { throw new Error('database unavailable in in-memory app'); }), {
     logger: false,
   });
   app.use(metrics.middleware());
@@ -116,6 +121,7 @@ export async function createProductionApiApp() {
     new CredentialService(new PrismaCredentialStore()),
     releases,
     metrics,
+    async () => { await db.$queryRaw`SELECT 1`; },
   ));
   app.use(metrics.middleware());
   await app.init();
