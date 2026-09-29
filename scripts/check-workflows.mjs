@@ -41,6 +41,7 @@ function checkPinnedActions(source, description) {
 
 requireText(ci, /pull_request:\s*\n\s*branches:\s*\n\s*-\s*main/, 'CI verifies pull requests targeting protected main');
 requireText(ci, /push:\s*\n\s*branches:\s*\n\s*-\s*main/, 'CI verifies pushes to protected main');
+requireText(ci, /verify:[\s\S]*actions\/checkout@[0-9a-f]{40}[\s\S]*fetch-depth:\s*0/, 'CI fetches PR history for repository scanning');
 requireText(
   ci,
   /publish:\s*\n\s*needs:\s*verify\s*\n\s*if:\s*>-\s*\n[\s\S]*github\.event_name\s*==\s*'push'[\s\S]*github\.ref\s*==\s*'refs\/heads\/main'[\s\S]*github\.ref_protected/,
