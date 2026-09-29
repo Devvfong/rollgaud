@@ -117,3 +117,13 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Behavior: reconciliation is idempotent and records an expired/uncertain lease as requiring reconciliation instead of claiming another job. Manual deploy/rollback actions are authenticated and CSRF-protected, queue new attempts only when no active attempt exists, and concurrent actions produce one queued attempt plus one `409`. First-release failures remain `failed`; restoration is `rolled_back` only after the previous public SHA verifies, otherwise `recovery_failed`. Approved digests are re-pulled when absent and fail closed when unavailable; cleanup/retention helpers preserve the active and most recent known-good digests and use the 30-minute previous-slot window.
 - Limitation: a disposable authorized host, test domain, and TLS route were unavailable. No unhealthy image or public old-version probe was run; that live-worker gate remains pending.
 - Next task: Task 12.
+
+## Task 12 execution evidence
+
+- Red check: `bash scripts/check-host-config.sh` exited 1 before `infrastructure/compose/compose.platform.yml`, the systemd unit, and operations guide existed.
+- Fail-closed Compose check: `docker compose -f infrastructure/compose/compose.platform.yml config` rejected unset required runtime variables. Re-running with explicitly non-working placeholders exited 0 and rendered the platform configuration.
+- Host check: `bash scripts/check-host-config.sh` exited 0. It verifies that only Traefik publishes 80/443, private services have no host ports, no public service mounts the Docker socket, the Traefik dynamic directory is read-only, the worker is a dedicated restricted user, and the operations guide covers DNS/TLS, UFW, emergency restoration, Docker socket ownership, and runtime secrets.
+- Traefik validation: an isolated `traefik:v3.3` container started with the static and dynamic files and was stopped after five seconds (`timeout` 124). It emitted only expected listener-close messages on termination; no configuration parse error occurred.
+- Workspace checks: `corepack pnpm lint`, `corepack pnpm typecheck`, `corepack pnpm test`, and `corepack pnpm build` each exited 0 against the Task 11 state. Database-backed worker tests remain skipped without `DATABASE_URL`; they were previously run with a disposable local PostgreSQL database.
+- Live gate: no existing host, DNS, certificate, firewall, login, or HTTPS deployment was configured. Those checks remain pending and no server was changed.
+- Next task: Task 13.

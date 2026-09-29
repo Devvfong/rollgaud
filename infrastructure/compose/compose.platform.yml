@@ -1,0 +1,99 @@
+name: devdeploy-platform
+
+services:
+  traefik:
+    image: traefik:v3.3@sha256:2cd5cc75530c8d07ae0587c743d23eb30cae2436d07017a5ff78498b1a43d09f
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../traefik/static.yml:/etc/traefik/traefik.yml:ro
+      - ../traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./secrets/traefik:/var/lib/traefik/acme:rw
+    networks: [edge, api-private]
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/example/devdeploy-api:nonworking-placeholder
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL at runtime}
+      GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:?Set GITHUB_REPOSITORY at runtime}
+      GHCR_IMAGE_NAMESPACE: ${GHCR_IMAGE_NAMESPACE:?Set GHCR_IMAGE_NAMESPACE at runtime}
+      GITHUB_WORKFLOW_PATH: ${GITHUB_WORKFLOW_PATH:?Set GITHUB_WORKFLOW_PATH at runtime}
+      GITHUB_READ_TOKEN: ${GITHUB_READ_TOKEN:?Set GITHUB_READ_TOKEN at runtime}
+    networks: [edge, api-private]
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/example/devdeploy-web:nonworking-placeholder
+    networks: [edge]
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17.7-alpine3.22@sha256:6b591f995765a189e69276dd55e0b362342d65d10d0359bb1fab67bc3391f20f
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-devdeploy}
+      POSTGRES_USER: ${POSTGRES_USER:-devdeploy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD at runtime}
+    volumes:
+      - platform-db:/var/lib/postgresql/data
+    networks: [db-private]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    configs:
+      - source: prometheus-config
+        target: /etc/prometheus/prometheus.yml
+    volumes:
+      - prometheus-data:/prometheus
+    networks: [monitoring-private]
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.5.0
+    volumes:
+      - loki-data:/loki
+    networks: [monitoring-private]
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.10.2
+    command: ["run", "/etc/alloy/config.alloy"]
+    volumes:
+      - /var/log/journal:/var/log/journal:ro
+      - /run/log/journal:/run/log/journal:ro
+    configs:
+      - source: alloy-config
+        target: /etc/alloy/config.alloy
+    networks: [monitoring-private]
+    restart: unless-stopped
+
+volumes:
+  platform-db:
+  prometheus-data:
+  loki-data:
+
+configs:
+  prometheus-config:
+    content: |
+      global:
+        scrape_interval: 30s
+      scrape_configs: []
+  alloy-config:
+    content: |
+      logging { level = "info" }
+
+networks:
+  edge:
+  api-private:
+    internal: true
+  db-private:
+    internal: true
+  monitoring-private:
+    internal: true

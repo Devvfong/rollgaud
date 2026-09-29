@@ -1,32 +1,25 @@
-# Operations Runbook
+# DevDeploy host operations
 
-**Status:** Planned commands and checks. Complete host-specific paths, user, domain and validated recovery steps during Task 12. Do not run recovery commands on an active host without checking the current route and backup first.
+This runbook describes the intended single-host installation. It contains no live hostname, credential, certificate, or private host address. Values in Compose and the worker environment file are supplied at runtime.
 
-## Routine release verification
+## Ownership and permissions
 
-```bash
-systemctl status devdeploy-worker --no-pager
-docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
-curl -fsS https://demo.example.com/health
-curl -fsS https://demo.example.com/version
-```
+Create a dedicated non-login `devdeploy-worker` user and group. The worker is the only non-root service identity granted the `docker` group, because Docker socket access is equivalent to host root. The worker owns `/var/lib/devdeploy/routes` and `/var/lib/devdeploy/compose` with mode `0750`; generated route and Compose files are mode `0640` or stricter. Traefik reads the route directory read-only. The API, web service, Traefik, Alloy, PostgreSQL, Prometheus, and Loki never receive the Docker socket.
 
-Compare `/version.commitSha` to the dashboard's **active release**, not merely the most recent queued attempt. Record deployment ID, CI run, image digest, route slot, and check time.
+The unit uses `ProtectSystem=strict`, `ProtectHome=true`, `NoNewPrivileges=true`, a private temporary directory, and explicit write paths. It runs without a login shell and restarts after a failure. Review Docker group membership and route-directory ownership after every host change.
 
-## Failure triage
+## Runtime secrets and configuration
 
-1. Check public `/health` and `/version`, then the dashboard attempt timeline.
-2. Inspect worker service, app containers, Traefik route file and related journal entries. Never paste secrets into tickets or logs.
-3. If the candidate failed before the switch, confirm the previous public version still serves HTTP 200.
-4. If the switch failed, compare actual route to the last successful release. Follow the tested manual route restoration procedure and verify public version **before** marking recovery complete.
-5. If the worker crashed, run the documented reconciliation process before queueing another attempt.
+Create `/etc/devdeploy/worker.env` and protect it with root ownership and mode `0600`. Supply the database URL, validated GitHub repository/workflow/read token, GHCR pull credentials, and any host-specific paths through protected environment or secret files. Do not commit this file. Compose requires `DATABASE_URL`, `POSTGRES_PASSWORD`, `GITHUB_REPOSITORY`, `GHCR_IMAGE_NAMESPACE`, `GITHUB_WORKFLOW_PATH`, and `GITHUB_READ_TOKEN` at runtime; missing values fail closed. Never place these values in an image, frontend variable, command line, route file, event message, or log.
 
-## Credential rotation
+## DNS, TLS, and firewall
 
-Rotate an admin password through the implemented protected procedure. To rotate a CI credential: create a new project-scoped token, update the protected GitHub environment secret, verify one authenticated release notification, then revoke the old token. Record only credential IDs and timestamps.
+Point the chosen public DNS records to the authorized host only after an approved maintenance window. Configure ACME or supplied certificates in the protected Traefik secret directory; never commit certificates or private keys. Traefik is the only service exposed on TCP 80/443. Use UFW (or the approved host firewall) to allow 22 only from the operator network and 80/443 from the intended clients; deny other inbound traffic and do not expose PostgreSQL, API, metrics, or log storage ports.
 
-## Host recovery
+## Install and restart
 
-Restore Ubuntu/Docker, platform PostgreSQL, saved Compose/Traefik configuration and GHCR read access; run reconciliation; verify TLS and public version. Repoint DNS only if recovering onto a replacement host. This is manual recovery, not automatic failover.
+Review the rendered configuration with `docker compose -f infrastructure/compose/compose.platform.yml config`, create the private networks and protected directories, then install the unit with `systemctl enable --now devdeploy-worker.service`. Check `systemctl status` and journal output without copying secrets. Restart the worker after upgrading its code or environment; it must reconcile database attempts, route state, Docker slots, and public version before claiming an expired lease.
 
-**Complete during implementation:** actual service name, configuration paths/permissions, expected health output, image/slot retention commands, log retention and route restore drill with elapsed time.
+## Emergency route restoration
+
+Stop the worker before emergency intervention. Preserve the current route file, identify the last verified release and digest from the database, and restore a complete known-good route file through an atomic replacement owned by `devdeploy-worker`. Verify `/health` and `/version.commitSha` over the public HTTPS endpoint before restarting the worker. If the old image cannot be pulled, keep the currently serving route intact and escalate; never delete the last known-good image or claim `rolled_back` without public verification. Record the incident and any transient 502 as an availability failure.

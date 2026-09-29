@@ -1,0 +1,25 @@
+[Unit]
+Description=DevDeploy host-local deployment worker
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=devdeploy-worker
+Group=devdeploy-worker
+SupplementaryGroups=docker
+EnvironmentFile=/etc/devdeploy/worker.env
+ExecStart=/usr/bin/node /opt/devdeploy/apps/deploy-worker/dist/src/main.js
+WorkingDirectory=/opt/devdeploy
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/devdeploy/routes /var/lib/devdeploy/compose
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
