@@ -61,7 +61,7 @@ test('two workers claim only one queued job for a project and persist a lease', 
   assert.equal(claimed[0]?.leaseUntil.toISOString(), '2026-09-29T01:01:00.000Z');
   assert.equal((await db.deployment.findUniqueOrThrow({ where: { id: fixture.second.id } })).status, 'queued');
   assert.deepEqual(
-    (await db.deploymentEvent.findMany({ where: { deploymentId: fixture.first.id }, orderBy: { sequence: 'asc' } })).map((event) => event.eventCode),
+    (await db.deploymentEvent.findMany({ where: { deploymentId: fixture.first.id }, orderBy: { sequence: 'asc' } })).map((event: { eventCode: string }) => event.eventCode),
     ['WORKER_CLAIMED'],
   );
 });

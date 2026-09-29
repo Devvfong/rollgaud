@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { DeploymentStatus, ProjectConfig } from '@devdeploy/contracts';
-import { db } from '@devdeploy/db';
+import { db, type Prisma } from '@devdeploy/db';
 
 const activeStatuses: Array<'preparing' | 'probing' | 'switching'> = ['preparing', 'probing', 'switching'];
 
@@ -115,7 +115,7 @@ export class PrismaJobRepository implements JobRepository {
   }
 
   private async appendEvent(
-    transaction: Parameters<typeof db.$transaction>[0] extends (transaction: infer T) => unknown ? T : never,
+    transaction: Prisma.TransactionClient,
     deploymentId: string,
     code: string,
     message: string,
