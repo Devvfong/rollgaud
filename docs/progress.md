@@ -181,3 +181,13 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Preserved unrelated state: `apps/api/package.json` remains an unstaged pre-existing test-script edit and should be reviewed/committed separately; untracked `documentation/` remains untouched and excluded from the Task 17 commit.
 - Commit: this focused Task 17 acceptance/documentation commit (SHA reported in the final handoff).
 - Next task: none; Task 17 is the final planned task. External G1–G7 gates remain pending.
+
+## Protected-main contribution-path audit (2026-09-29)
+
+- Initial inspection found `main` protected with strict `verify`, admin enforcement, and one required approval. `.github/workflows/ci.yml` triggered only on pushes, so pull requests were not verified.
+- Red check: a local assertion for a `pull_request` trigger failed as expected. Added `pull_request: branches: [main]`, retained top-level `contents: read`, and guarded `publish` with `push`, `refs/heads/main`, and `github.ref_protected`. Added a static check requiring the PR trigger, protected-push guard, and `fetch-depth: 0` for Gitleaks history.
+- PR: https://github.com/Devvfong/rollgaud/pull/1. First PR run: https://github.com/Devvfong/rollgaud/actions/runs/36562756473. `verify` initially failed because the shallow PR checkout did not contain the parent commit required by the Gitleaks action; `publish` was skipped. The focused fix added `fetch-depth: 0`.
+- Pre-push scans before the fix push: official Gitleaks 8.29.1 `gitleaks git --redact --no-banner --log-opts="--all" .` and `gitleaks dir --redact --no-banner .` both exited 0 with no findings; diff checks passed.
+- Corrected PR run: https://github.com/Devvfong/rollgaud/actions/runs/36562915908. `verify` passed (lint/test/Gitleaks); `publish` was skipped on the PR event. No deployment credentials were present.
+- GitHub showed only `Devvfong` as a collaborator and no independent reviewer. Final `main` protection therefore requires zero approvals while retaining strict `verify`, admin enforcement, `allow_force_pushes=false`, and `allow_deletions=false`. The corrected PR became `MERGEABLE`/`CLEAN` only after `verify` passed.
+- Release environment remains unconfigured: no deployment API URL, project ID, or workflow credential was added. Host, DNS, and ITE server remain untouched.
