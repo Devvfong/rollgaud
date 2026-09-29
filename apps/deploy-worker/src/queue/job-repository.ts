@@ -39,7 +39,7 @@ export class PrismaJobRepository implements JobRepository {
   }
 
   async claimNext(projectId?: string): Promise<ClaimedDeployment | null> {
-    return db.$transaction(async (transaction) => {
+    return db.$transaction(async (transaction: Prisma.TransactionClient) => {
       const candidates = await transaction.$queryRaw<Array<{ id: string }>>`
         SELECT d."id"
         FROM "deployments" AS d
@@ -80,7 +80,7 @@ export class PrismaJobRepository implements JobRepository {
           id: deployment.id,
           projectId: deployment.projectId,
           releaseId: deployment.releaseId,
-          status: 'preparing',
+          status: 'preparing' as const,
           leaseUntil,
           imageDigest: deployment.release.imageDigest,
           project: {
@@ -108,7 +108,7 @@ export class PrismaJobRepository implements JobRepository {
   }
 
   async recordEvent(id: string, code: string, message: string): Promise<void> {
-    await db.$transaction(async (transaction) => {
+    await db.$transaction(async (transaction: Prisma.TransactionClient) => {
       await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))`;
       await this.appendEvent(transaction, id, code, message);
     });
