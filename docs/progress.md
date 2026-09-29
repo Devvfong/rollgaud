@@ -127,3 +127,12 @@ After each task, record commands, exit status, environment, commit SHA and the n
 - Workspace checks: `corepack pnpm lint`, `corepack pnpm typecheck`, `corepack pnpm test`, and `corepack pnpm build` each exited 0 against the Task 11 state. Database-backed worker tests remain skipped without `DATABASE_URL`; they were previously run with a disposable local PostgreSQL database.
 - Live gate: no existing host, DNS, certificate, firewall, login, or HTTPS deployment was configured. Those checks remain pending and no server was changed.
 - Next task: Task 13.
+
+## Task 13 execution evidence
+
+- Red check: `corepack pnpm --filter @devdeploy/web test:e2e -- visual-states.spec` initially failed while the typed view modules and visual pages were absent.
+- Focused check: the same command exited 0 with 3/3 tests. It covers all five route titles/key fields, text-accessible status labels, prominent `recovery_failed` remediation, confirmation dialog labels/Escape dismissal, and responsive no-overflow assertions for the 360px/1280px design targets.
+- UI implementation: added RollGaud shell, fixture data provider, login/overview/projects/project detail/deployment pages, status badges, timeline, confirmation action, loading/empty/error states, slate/neutral/cyan styling, and typed view contracts.
+- Browser limitation: the configured computer-use browser was unavailable, so live viewport screenshots could not be captured. The focused responsive assertions and CSS media rules passed; no live API integration was attempted.
+- Workspace checks: final `corepack pnpm lint`, `corepack pnpm typecheck`, `corepack pnpm test`, and `corepack pnpm build` are pending after the final UI green run.
+- Next task: Task 14.

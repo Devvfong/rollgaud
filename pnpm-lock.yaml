@@ -232,7 +232,15 @@ importers:
         specifier: 24.19.0
         version: 24.19.0
 
-  apps/web: {}
+  apps/web:
+    dependencies:
+      '@devdeploy/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.0
+        version: 24.19.0
 
   packages/contracts:
     devDependencies:

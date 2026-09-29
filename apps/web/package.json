@@ -5,8 +5,15 @@
   "type": "module",
   "scripts": {
     "lint": "tsc --noEmit --project tsconfig.json",
-    "test": "node --test",
+    "test": "tsc --project tsconfig.json --outDir dist && node --test dist/test/*.spec.js",
+    "test:e2e": "corepack pnpm --filter @devdeploy/web test -- visual-states.spec",
     "build": "tsc --project tsconfig.json --outDir dist",
     "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@devdeploy/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.0"
   }
 }
