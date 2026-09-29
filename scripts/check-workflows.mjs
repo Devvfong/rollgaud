@@ -39,7 +39,13 @@ function checkPinnedActions(source, description) {
   }
 }
 
-requireText(ci, /push:\s*\n\s*branches:\s*\n\s*-\s*main/, 'CI only triggers push workflow on protected main');
+requireText(ci, /pull_request:\s*\n\s*branches:\s*\n\s*-\s*main/, 'CI verifies pull requests targeting protected main');
+requireText(ci, /push:\s*\n\s*branches:\s*\n\s*-\s*main/, 'CI verifies pushes to protected main');
+requireText(
+  ci,
+  /publish:\s*\n\s*needs:\s*verify\s*\n\s*if:\s*>-\s*\n[\s\S]*github\.event_name\s*==\s*'push'[\s\S]*github\.ref\s*==\s*'refs\/heads\/main'[\s\S]*github\.ref_protected/,
+  'CI publishes only from a protected main push after verify',
+);
 requireText(ci, /contents:\s*read/, 'CI grants contents read');
 requireText(ci, /packages:\s*write/, 'CI grants package write only to publish');
 requireText(ci, /corepack pnpm lint[\s\S]*corepack pnpm test/, 'CI runs lint and tests');

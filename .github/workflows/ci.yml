@@ -1,6 +1,9 @@
 name: CI
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -33,6 +36,10 @@ jobs:
 
   publish:
     needs: verify
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      github.ref_protected
     runs-on: ubuntu-24.04
     permissions:
       contents: read
